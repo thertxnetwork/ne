@@ -22,22 +22,24 @@ ne/
 
 ### Core Functionality
 1. **Multiple Session Management**: Select from existing sessions or create new ones
-2. **Telegram Authentication**: Secure session management with Telethon
-3. **Web App URL Generation**: Retrieves web app URLs from bots
-4. **InitData Generation**: Creates authentication data for web apps
-5. **Homepage Fetching**: Downloads and saves web app content
-6. **Data Persistence**: Saves initdata and HTML to files
+2. **Multiple Bot Processing**: Process multiple bots from environment variables
+3. **Telegram Authentication**: Secure session management with Telethon
+4. **Web App URL Generation**: Retrieves web app URLs from bots
+5. **InitData Generation**: Creates authentication data for web apps
+6. **Homepage Fetching**: Downloads and saves web app content
+7. **Data Persistence**: Saves initdata and HTML to files (separate files per bot)
 
 ### UI Features
 1. **Rich Terminal Interface**: Powered by Rich library
 2. **Session Selection UI**: Beautiful table showing available sessions
-3. **Color Coding**: Multiple colors for different elements
-4. **Interactive Prompts**: User-friendly input system
-5. **Progress Indicators**: Animated spinners for operations
-6. **Tables & Panels**: Beautiful data presentation
-7. **Syntax Highlighting**: Code previews with color
-8. **Emojis & Icons**: Visual categorization
-9. **ASCII Art**: Professional headers
+3. **Bot Processing UI**: Clear indicators for multi-bot processing
+4. **Color Coding**: Multiple colors for different elements
+5. **Interactive Prompts**: User-friendly input system
+6. **Progress Indicators**: Animated spinners for operations
+7. **Tables & Panels**: Beautiful data presentation
+8. **Syntax Highlighting**: Code previews with color
+9. **Emojis & Icons**: Visual categorization
+10. **ASCII Art**: Professional headers
 
 ## 🎨 Color Scheme
 

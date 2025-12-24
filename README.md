@@ -13,6 +13,7 @@ A Python script with a **beautiful terminal UI** to open Telegram web apps with 
 - 💾 Save initData and homepage to files
 - 🔐 Secure session management with Telethon
 - 📱 **Multiple session support** - Select from existing sessions or create new
+- 🤖 **Multiple bot support** - Process multiple bots from environment variables
 - 🎨 **Beautiful, colorful terminal UI**
 - 📊 **Interactive prompts and progress indicators**
 
@@ -57,6 +58,14 @@ The script supports **multiple Telegram sessions**:
 2. **Subsequent runs**: Select from existing sessions or create a new one
 3. **Session files**: Stored as `.session` files (e.g., `session_8801234567.session`)
 
+### Bot Configuration
+
+The script supports **multiple bot processing**:
+
+1. **Environment variable**: Set `BOT_USERNAME` in `.env` file for one or more bots
+2. **Multiple bots**: Use comma-separated values (e.g., `BOT_USERNAME=bot1,bot2,bot3`)
+3. **Manual input**: If not set, the script will prompt for bot username(s)
+
 ### Basic Usage
 
 Run the script:
@@ -68,9 +77,9 @@ The script will:
 1. Prompt for your Telegram API credentials (if not in .env)
 2. **Display available sessions and let you select one** (or create new)
 3. Authenticate if needed (code will be sent to your account)
-4. Ask for the bot username
-5. Generate initData for the web app
-6. Fetch and save the homepage
+4. **Load bot username(s) from environment or prompt**
+5. **Process each bot** - Generate initData and fetch homepage
+6. Save results to separate files for each bot
 
 ### Environment Variables
 
@@ -79,6 +88,7 @@ You can set these in `.env` file or provide them when prompted:
 - `API_ID`: Your Telegram API ID (integer) - **Required**
 - `API_HASH`: Your Telegram API Hash (string) - **Required**
 - `PHONE`: Your phone number with country code (optional, only for new sessions)
+- `BOT_USERNAME`: Bot username(s) (optional, comma-separated for multiple bots)
 
 ### Example Output
 

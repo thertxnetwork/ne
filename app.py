@@ -504,90 +504,113 @@ async def main():
         await launcher.connect()
         console.print()
         
-        # Get bot username
-        bot_username = Prompt.ask("[bold cyan]Enter bot username (without @)[/bold cyan]")
-        console.print()
+        # Get bot username(s) from environment or prompt
+        bot_usernames_env = os.getenv('BOT_USERNAME', '').strip()
         
-        # Show bot information
-        await launcher.get_bot_info(bot_username)
-        
-        # Generate initData
-        console.print(Panel(
-            "[bold cyan]Generating InitData...[/bold cyan]",
-            border_style="cyan"
-        ))
-        console.print()
-        
-        web_app_data = await launcher.generate_init_data(bot_username)
-        
-        if web_app_data:
-            # Create results table
-            results_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-            results_table.add_column("Property", style="cyan", width=15)
-            results_table.add_column("Value", style="green")
-            
-            results_table.add_row("🌐 URL", web_app_data['url'][:60] + "..." if len(web_app_data['url']) > 60 else web_app_data['url'])
-            results_table.add_row("🆔 Query ID", str(web_app_data.get('query_id', 'N/A')))
-            
-            if web_app_data.get('init_data'):
-                init_data_preview = web_app_data['init_data'][:80] + "..."
-                results_table.add_row("🔑 InitData", init_data_preview)
-                
-                # Save to file
-                with open('initdata.txt', 'w') as f:
-                    f.write(web_app_data['init_data'])
-                results_table.add_row("💾 Saved to", "initdata.txt")
-            else:
-                results_table.add_row("⚠️  Note", "No initData in query parameters")
-            
-            console.print(Panel(
-                results_table,
-                title="[bold green]✅ InitData Generated Successfully![/bold green]",
-                border_style="green"
-            ))
+        if bot_usernames_env:
+            # Parse bot usernames from environment (comma-separated)
+            bot_usernames = [bot.strip() for bot in bot_usernames_env.split(',') if bot.strip()]
+            console.print(f"[green]✓ Bot username(s) loaded from environment: {', '.join(bot_usernames)}[/green]")
             console.print()
-                
-        # Fetch homepage
-        console.print(Panel(
-            "[bold cyan]Fetching Homepage...[/bold cyan]",
-            border_style="cyan"
-        ))
-        console.print()
+        else:
+            # Prompt for bot username
+            bot_username_input = Prompt.ask("[bold cyan]Enter bot username(s) (comma-separated for multiple, without @)[/bold cyan]")
+            bot_usernames = [bot.strip() for bot in bot_username_input.split(',') if bot.strip()]
+            console.print()
         
-        homepage = await launcher.fetch_homepage(bot_username)
-        
-        if homepage:
-            # Save homepage to file
-            filename = f"homepage_{bot_username}.html"
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(homepage)
+        # Process each bot
+        for idx, bot_username in enumerate(bot_usernames, 1):
+            if len(bot_usernames) > 1:
+                console.print(f"[bold yellow]═══ Processing Bot {idx}/{len(bot_usernames)}: @{bot_username} ═══[/bold yellow]")
+                console.print()
             
-            # Create summary table
-            summary_table = Table(show_header=False, box=box.SIMPLE)
-            summary_table.add_column("Label", style="cyan")
-            summary_table.add_column("Value", style="green")
-            summary_table.add_row("📄 Filename", filename)
-            summary_table.add_row("📊 Size", f"{len(homepage) / 1024:.2f} KB")
-            summary_table.add_row("📝 Lines", str(homepage.count('\n')))
+            # Show bot information
+            await launcher.get_bot_info(bot_username)
             
+            # Generate initData
             console.print(Panel(
-                summary_table,
-                title="[bold green]✅ Homepage Saved Successfully![/bold green]",
-                border_style="green"
+                "[bold cyan]Generating InitData...[/bold cyan]",
+                border_style="cyan"
             ))
             console.print()
             
-            # Show preview
-            preview_lines = homepage[:400]
-            if len(homepage) > 400:
-                preview_lines += "\n..."
+            web_app_data = await launcher.generate_init_data(bot_username)
             
-            syntax = Syntax(preview_lines, "html", theme="monokai", line_numbers=False)
+            if web_app_data:
+                # Create results table
+                results_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+                results_table.add_column("Property", style="cyan", width=15)
+                results_table.add_column("Value", style="green")
+                
+                results_table.add_row("🌐 URL", web_app_data['url'][:60] + "..." if len(web_app_data['url']) > 60 else web_app_data['url'])
+                results_table.add_row("🆔 Query ID", str(web_app_data.get('query_id', 'N/A')))
+                
+                if web_app_data.get('init_data'):
+                    init_data_preview = web_app_data['init_data'][:80] + "..."
+                    results_table.add_row("🔑 InitData", init_data_preview)
+                    
+                    # Save to file with bot username
+                    initdata_filename = f"initdata_{bot_username}.txt" if len(bot_usernames) > 1 else "initdata.txt"
+                    with open(initdata_filename, 'w') as f:
+                        f.write(web_app_data['init_data'])
+                    results_table.add_row("💾 Saved to", initdata_filename)
+                else:
+                    results_table.add_row("⚠️  Note", "No initData in query parameters")
+                
+                console.print(Panel(
+                    results_table,
+                    title="[bold green]✅ InitData Generated Successfully![/bold green]",
+                    border_style="green"
+                ))
+                console.print()
+                    
+            # Fetch homepage
             console.print(Panel(
-                syntax,
-                title="[bold yellow]📄 Homepage Preview[/bold yellow]",
-                border_style="yellow"
+                "[bold cyan]Fetching Homepage...[/bold cyan]",
+                border_style="cyan"
             ))
+            console.print()
+            
+            homepage = await launcher.fetch_homepage(bot_username)
+            
+            if homepage:
+                # Save homepage to file
+                filename = f"homepage_{bot_username}.html"
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(homepage)
+                
+                # Create summary table
+                summary_table = Table(show_header=False, box=box.SIMPLE)
+                summary_table.add_column("Label", style="cyan")
+                summary_table.add_column("Value", style="green")
+                summary_table.add_row("📄 Filename", filename)
+                summary_table.add_row("📊 Size", f"{len(homepage) / 1024:.2f} KB")
+                summary_table.add_row("📝 Lines", str(homepage.count('\n')))
+                
+                console.print(Panel(
+                    summary_table,
+                    title="[bold green]✅ Homepage Saved Successfully![/bold green]",
+                    border_style="green"
+                ))
+                console.print()
+                
+                # Show preview
+                preview_lines = homepage[:400]
+                if len(homepage) > 400:
+                    preview_lines += "\n..."
+                
+                syntax = Syntax(preview_lines, "html", theme="monokai", line_numbers=False)
+                console.print(Panel(
+                    syntax,
+                    title="[bold yellow]📄 Homepage Preview[/bold yellow]",
+                    border_style="yellow"
+                ))
+            
+            console.print()
+            
+            # Add separator between bots
+            if idx < len(bot_usernames):
+                console.print()
         
         console.print()
         
