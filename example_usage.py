@@ -7,7 +7,7 @@ rather than interactively.
 
 import asyncio
 import os
-from telegram_webapp import TelegramWebAppLauncher
+from app import TelegramWebAppLauncher
 
 
 async def example_usage():

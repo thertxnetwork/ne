@@ -5,22 +5,6 @@ A Python script with a **beautiful terminal UI** to open Telegram web apps with 
 ![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## 🎨 Beautiful Terminal UI
-
-This script features a stunning, colorful terminal interface powered by [Rich](https://github.com/Textualize/rich):
-- 🌈 Multiple colors and styles
-- 📊 Beautiful tables and panels
-- ⚡ Progress indicators and spinners
-- 🎯 Syntax highlighting for code previews
-- ✨ Professional and modern design
-
-### UI Demo
-
-Run the demo to see the beautiful interface:
-```bash
-python demo_ui.py
-```
-
 ## Features
 
 - 🚀 Open Telegram web apps programmatically
@@ -68,7 +52,7 @@ cp .env.example .env
 
 Run the script:
 ```bash
-python telegram_webapp.py
+python app.py
 ```
 
 The script will:
@@ -91,7 +75,7 @@ You can set these in `.env` file or provide them when prompted:
 The script provides a beautiful, colorful terminal experience:
 
 ```bash
-$ python telegram_webapp.py
+$ python app.py
 
 ╔══════════════════════════════════════════════════════════╗
 ║  🚀 TELEGRAM WEB APP LAUNCHER WITH INITDATA 🚀  ║

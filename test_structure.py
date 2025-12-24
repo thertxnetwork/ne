@@ -1,5 +1,5 @@
 """
-Unit tests for telegram_webapp.py
+Unit tests for app.py
 
 This test file validates the structure and basic functionality
 of the TelegramWebAppLauncher class without requiring actual
@@ -15,13 +15,13 @@ def test_file_syntax():
     """Test that the main script has valid Python syntax."""
     print("Testing file syntax...")
     try:
-        with open('telegram_webapp.py', 'r') as f:
+        with open('app.py', 'r') as f:
             code = f.read()
         ast.parse(code)
-        print("✅ telegram_webapp.py has valid syntax")
+        print("✅ app.py has valid syntax")
         return True
     except SyntaxError as e:
-        print(f"❌ Syntax error in telegram_webapp.py: {e}")
+        print(f"❌ Syntax error in app.py: {e}")
         return False
 
 
@@ -42,7 +42,7 @@ def test_example_syntax():
 def test_class_structure():
     """Test that the TelegramWebAppLauncher class has expected methods."""
     print("Testing class structure...")
-    with open('telegram_webapp.py', 'r') as f:
+    with open('app.py', 'r') as f:
         code = f.read()
     
     tree = ast.parse(code)

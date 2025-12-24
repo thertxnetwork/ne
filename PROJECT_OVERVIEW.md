@@ -8,13 +8,11 @@ A Python script that opens Telegram web apps with initdata and fetches homepage 
 
 ```
 ne/
-├── telegram_webapp.py          # Main script (468 lines)
-├── demo_ui.py                  # UI demonstration (191 lines)
+├── app.py                     # Main script (468 lines)
 ├── example_usage.py            # Programmatic usage example (77 lines)
 ├── test_structure.py           # Structure validation tests (220 lines)
 ├── requirements.txt            # Python dependencies (5 lines)
-├── README.md                   # Main documentation (236 lines)
-├── UI_FEATURES.md             # UI features documentation (104 lines)
+├── README.md                   # Main documentation
 ├── .env.example               # Environment configuration template (7 lines)
 ├── .gitignore                 # Git ignore patterns (41 lines)
 └── __pycache__/               # Python cache (ignored by git)
@@ -66,11 +64,8 @@ colorama>=0.4.6       # Cross-platform colors
 # Install dependencies
 pip install -r requirements.txt
 
-# View UI demo (no credentials needed)
-python demo_ui.py
-
-# Run the actual script
-python telegram_webapp.py
+# Run the script
+python app.py
 ```
 
 ### Configuration
@@ -136,29 +131,25 @@ All 7 tests pass:
 - **Tested**: All structure tests passing
 - **Secure**: Proper credential management
 - **Modular**: Reusable class design
-- **Demo Available**: See UI without credentials
 
 ## 🎉 Success Metrics
 
 - ✅ All requirements implemented
 - ✅ Beautiful terminal UI with colors
 - ✅ Comprehensive documentation
-- ✅ Working demo script
 - ✅ All tests passing
 - ✅ Secure by default
 - ✅ Ready to use
 
 ## 📚 Additional Resources
 
-- **Main Script**: `telegram_webapp.py`
-- **UI Demo**: `demo_ui.py`
+- **Main Script**: `app.py`
 - **Documentation**: `README.md`
-- **UI Details**: `UI_FEATURES.md`
 - **Examples**: `example_usage.py`
 
 ## 🔄 Workflow
 
-1. User runs `telegram_webapp.py`
+1. User runs `app.py`
 2. Script displays beautiful header
 3. Prompts for credentials (if not in .env)
 4. Connects to Telegram with spinner
@@ -173,10 +164,8 @@ All 7 tests pass:
 ## 💡 Tips
 
 - Use `.env` file for credentials
-- Run `demo_ui.py` to see the interface
 - Check `example_usage.py` for programmatic use
 - Keep session files secure
-- Review `UI_FEATURES.md` for UI details
 
 ## 🏆 Project Status
 

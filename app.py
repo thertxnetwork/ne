@@ -12,7 +12,7 @@ Requirements:
 - Bot username or web app URL
 
 Usage:
-    python telegram_webapp.py
+    python app.py
 """
 
 import asyncio
