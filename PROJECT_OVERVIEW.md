@@ -21,21 +21,23 @@ ne/
 ## 🚀 Key Features
 
 ### Core Functionality
-1. **Telegram Authentication**: Secure session management with Telethon
-2. **Web App URL Generation**: Retrieves web app URLs from bots
-3. **InitData Generation**: Creates authentication data for web apps
-4. **Homepage Fetching**: Downloads and saves web app content
-5. **Data Persistence**: Saves initdata and HTML to files
+1. **Multiple Session Management**: Select from existing sessions or create new ones
+2. **Telegram Authentication**: Secure session management with Telethon
+3. **Web App URL Generation**: Retrieves web app URLs from bots
+4. **InitData Generation**: Creates authentication data for web apps
+5. **Homepage Fetching**: Downloads and saves web app content
+6. **Data Persistence**: Saves initdata and HTML to files
 
 ### UI Features
 1. **Rich Terminal Interface**: Powered by Rich library
-2. **Color Coding**: Multiple colors for different elements
-3. **Interactive Prompts**: User-friendly input system
-4. **Progress Indicators**: Animated spinners for operations
-5. **Tables & Panels**: Beautiful data presentation
-6. **Syntax Highlighting**: Code previews with color
-7. **Emojis & Icons**: Visual categorization
-8. **ASCII Art**: Professional headers
+2. **Session Selection UI**: Beautiful table showing available sessions
+3. **Color Coding**: Multiple colors for different elements
+4. **Interactive Prompts**: User-friendly input system
+5. **Progress Indicators**: Animated spinners for operations
+6. **Tables & Panels**: Beautiful data presentation
+7. **Syntax Highlighting**: Code previews with color
+8. **Emojis & Icons**: Visual categorization
+9. **ASCII Art**: Professional headers
 
 ## 🎨 Color Scheme
 

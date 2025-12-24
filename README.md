@@ -12,6 +12,7 @@ A Python script with a **beautiful terminal UI** to open Telegram web apps with 
 - 📥 Fetch homepage content from Telegram bots/web apps
 - 💾 Save initData and homepage to files
 - 🔐 Secure session management with Telethon
+- 📱 **Multiple session support** - Select from existing sessions or create new
 - 🎨 **Beautiful, colorful terminal UI**
 - 📊 **Interactive prompts and progress indicators**
 
@@ -48,6 +49,14 @@ cp .env.example .env
 
 ## Usage
 
+### Session Management
+
+The script supports **multiple Telegram sessions**:
+
+1. **First run**: Create a new session by providing your phone number
+2. **Subsequent runs**: Select from existing sessions or create a new one
+3. **Session files**: Stored as `.session` files (e.g., `session_8801234567.session`)
+
 ### Basic Usage
 
 Run the script:
@@ -56,23 +65,24 @@ python app.py
 ```
 
 The script will:
-1. Prompt for your Telegram credentials (if not in .env)
-2. Authenticate with Telegram (code will be sent to your account)
-3. Ask for the bot username
-4. Generate initData for the web app
-5. Fetch and save the homepage
+1. Prompt for your Telegram API credentials (if not in .env)
+2. **Display available sessions and let you select one** (or create new)
+3. Authenticate if needed (code will be sent to your account)
+4. Ask for the bot username
+5. Generate initData for the web app
+6. Fetch and save the homepage
 
 ### Environment Variables
 
 You can set these in `.env` file or provide them when prompted:
 
-- `API_ID`: Your Telegram API ID (integer)
-- `API_HASH`: Your Telegram API Hash (string)
-- `PHONE`: Your phone number with country code (e.g., +1234567890)
+- `API_ID`: Your Telegram API ID (integer) - **Required**
+- `API_HASH`: Your Telegram API Hash (string) - **Required**
+- `PHONE`: Your phone number with country code (optional, only for new sessions)
 
 ### Example Output
 
-The script provides a beautiful, colorful terminal experience:
+The script provides a beautiful, colorful terminal experience with **session selection**:
 
 ```bash
 $ python app.py
@@ -92,7 +102,20 @@ $ python app.py
 
 ✓ API ID loaded from environment
 ✓ API Hash loaded from environment
-✓ Phone loaded from environment
+
+📱 Available Telegram Sessions
+
+╭─────────────────────────────────────────────────────────────╮
+│ #   │ Session Name       │ Phone          │ Username │ Name │
+├─────┼────────────────────┼────────────────┼──────────┼──────┤
+│ 1   │ session_8801234567 │ +8801234567    │ @john    │ John │
+│ 2   │ session_8809876543 │ +8809876543    │ @alice   │ Alice│
+╰─────────────────────────────────────────────────────────────╯
+
+3. Create New Session
+
+Select session (1-3): 1
+✅ Selected: session_8801234567 (+8801234567)
 
 ╭─ Connecting to Telegram... ─╮
 │ Connecting to Telegram...   │

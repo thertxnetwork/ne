@@ -22,8 +22,10 @@ import hmac
 import json
 import os
 import time
+import glob
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 from telethon import TelegramClient, functions
 from telethon.tl.types import InputBotAppShortName, InputUser
@@ -93,13 +95,28 @@ class TelegramWebAppLauncher:
             await self.client.connect()
         
         if not await self.client.is_user_authorized():
+            # Need to authenticate
+            if not self.phone:
+                console.print("[red]❌ Session not authorized and no phone number provided[/red]")
+                return
+            
+            # Send code request
+            await self.client.send_code_request(self.phone)
             console.print(f"[yellow]📱 Code sent to {self.phone}[/yellow]")
             code = Prompt.ask("[bold cyan]Enter the verification code[/bold cyan]")
             
             with console.status("[bold cyan]Signing in...", spinner="dots"):
-                await self.client.sign_in(self.phone, code)
-            
-            console.print("[green]✅ Successfully authenticated![/green]")
+                try:
+                    await self.client.sign_in(self.phone, code)
+                    console.print("[green]✅ Successfully authenticated![/green]")
+                except Exception as e:
+                    # Might need password for 2FA
+                    if "password" in str(e).lower():
+                        password = Prompt.ask("[bold cyan]Enter your 2FA password[/bold cyan]", password=True)
+                        await self.client.sign_in(password=password)
+                        console.print("[green]✅ Successfully authenticated with 2FA![/green]")
+                    else:
+                        raise
         else:
             console.print("[green]✅ Already authenticated![/green]")
             
@@ -280,6 +297,128 @@ class TelegramWebAppLauncher:
             console.print(f"[red]❌ Error getting bot info: {e}[/red]")
 
 
+def find_session_files() -> List[str]:
+    """Find all .session files in the current directory."""
+    session_files = glob.glob("*.session")
+    return [os.path.splitext(f)[0] for f in session_files]
+
+
+async def get_session_info(session_name: str, api_id: int, api_hash: str) -> Optional[Dict]:
+    """
+    Get information about a session file.
+    
+    Args:
+        session_name: Name of the session file (without .session extension)
+        api_id: Telegram API ID
+        api_hash: Telegram API Hash
+        
+    Returns:
+        Dictionary with session info or None if session is invalid
+    """
+    try:
+        client = TelegramClient(session_name, api_id, api_hash)
+        await client.connect()
+        
+        if await client.is_user_authorized():
+            me = await client.get_me()
+            await client.disconnect()
+            return {
+                'session_name': session_name,
+                'user_id': me.id,
+                'phone': me.phone,
+                'username': me.username,
+                'first_name': me.first_name,
+                'last_name': me.last_name
+            }
+        else:
+            await client.disconnect()
+            return None
+    except Exception as e:
+        return None
+
+
+async def display_sessions(api_id: int, api_hash: str) -> Optional[str]:
+    """
+    Display available sessions and let user select one.
+    
+    Args:
+        api_id: Telegram API ID
+        api_hash: Telegram API Hash
+        
+    Returns:
+        Selected session name or None to create new session
+    """
+    session_files = find_session_files()
+    
+    if not session_files:
+        console.print("[yellow]📂 No existing sessions found.[/yellow]")
+        console.print()
+        return None
+    
+    console.print("[bold cyan]📱 Available Telegram Sessions[/bold cyan]")
+    console.print()
+    
+    # Create table for sessions
+    table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+    table.add_column("#", style="cyan", width=5)
+    table.add_column("Session Name", style="green")
+    table.add_column("Phone", style="yellow")
+    table.add_column("Username", style="blue")
+    table.add_column("Name", style="white")
+    
+    valid_sessions = []
+    
+    with console.status("[bold cyan]Loading sessions...", spinner="dots"):
+        for idx, session_name in enumerate(session_files, 1):
+            info = await get_session_info(session_name, api_id, api_hash)
+            if info:
+                valid_sessions.append(info)
+                username_display = f"@{info['username']}" if info['username'] else "None"
+                name_display = f"{info['first_name']} {info['last_name'] if info['last_name'] else ''}".strip()
+                table.add_row(
+                    str(idx),
+                    session_name,
+                    info['phone'] or "N/A",
+                    username_display,
+                    name_display
+                )
+    
+    if not valid_sessions:
+        console.print("[yellow]📂 No valid sessions found.[/yellow]")
+        console.print()
+        return None
+    
+    console.print(table)
+    console.print()
+    
+    # Add option to create new session
+    console.print(f"[cyan]{len(valid_sessions) + 1}. [bold]Create New Session[/bold][/cyan]")
+    console.print()
+    
+    # Get user choice
+    while True:
+        choice = Prompt.ask(
+            f"[bold cyan]Select session (1-{len(valid_sessions) + 1})[/bold cyan]",
+            default="1"
+        )
+        
+        try:
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(valid_sessions):
+                selected = valid_sessions[choice_num - 1]
+                console.print(f"[green]✅ Selected: {selected['session_name']} ({selected['phone']})[/green]")
+                console.print()
+                return selected['session_name']
+            elif choice_num == len(valid_sessions) + 1:
+                console.print("[green]✅ Creating new session...[/green]")
+                console.print()
+                return None
+            else:
+                console.print(f"[red]Invalid choice. Please enter 1-{len(valid_sessions) + 1}[/red]")
+        except ValueError:
+            console.print("[red]Invalid input. Please enter a number.[/red]")
+
+
 async def main():
     """Main function with beautiful terminal UI."""
     
@@ -314,7 +453,6 @@ async def main():
     
     api_id = os.getenv('API_ID')
     api_hash = os.getenv('API_HASH')
-    phone = os.getenv('PHONE')
     
     if not api_id:
         api_id = Prompt.ask("[cyan]Enter your Telegram API ID[/cyan]")
@@ -326,11 +464,6 @@ async def main():
     else:
         console.print(f"[green]✓ API Hash loaded from environment[/green]")
         
-    if not phone:
-        phone = Prompt.ask("[cyan]Enter your phone number (with country code, e.g., +1234567890)[/cyan]")
-    else:
-        console.print(f"[green]✓ Phone loaded from environment[/green]")
-        
     try:
         api_id = int(api_id)
     except ValueError:
@@ -339,8 +472,31 @@ async def main():
     
     console.print()
     
+    # Display and select session
+    selected_session = await display_sessions(api_id, api_hash)
+    
+    # Determine session name and phone
+    if selected_session:
+        # Using existing session
+        session_name = selected_session
+        phone = None  # Not needed for existing session
+    else:
+        # Creating new session - need phone number
+        phone = os.getenv('PHONE')
+        if not phone:
+            phone = Prompt.ask("[cyan]Enter your phone number (with country code, e.g., +1234567890)[/cyan]")
+        else:
+            console.print(f"[green]✓ Phone loaded from environment[/green]")
+        
+        # Generate session name from phone or timestamp
+        session_name = Prompt.ask(
+            "[cyan]Enter session name[/cyan]",
+            default=f"session_{phone.replace('+', '').replace(' ', '')}"
+        )
+        console.print()
+    
     # Initialize launcher
-    launcher = TelegramWebAppLauncher(api_id, api_hash, phone)
+    launcher = TelegramWebAppLauncher(api_id, api_hash, phone or "", session_name)
     
     try:
         # Connect and authenticate
