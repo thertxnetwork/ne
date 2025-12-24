@@ -159,7 +159,7 @@ class TelegramWebAppLauncher:
         
         Args:
             bot_username: Bot username (without @)
-            start_param: Optional start parameter
+            start_param: Optional start parameter (e.g., for ?startapp= URLs)
             
         Returns:
             Dictionary containing initData and related information
@@ -170,14 +170,29 @@ class TelegramWebAppLauncher:
                 bot = await self.client.get_entity(bot_username)
                 me = await self.client.get_me()
                 
-                # Request web view to get the URL with initData
-                result = await self.client(functions.messages.RequestWebViewRequest(
-                    peer=bot,
-                    bot=bot,
-                    platform='android',
-                    url='',
-                    start_param=start_param
-                ))
+                # Try RequestAppWebViewRequest first (for bots with ?startapp parameter)
+                try:
+                    from telethon.tl.types import InputBotAppShortName
+                    result = await self.client(functions.messages.RequestAppWebViewRequest(
+                        peer=bot,
+                        app=InputBotAppShortName(
+                            bot_id=bot,
+                            short_name="app"
+                        ),
+                        platform='android',
+                        write_allowed=True,
+                        start_param=start_param if start_param else ""
+                    ))
+                except Exception as app_error:
+                    # Fallback to RequestWebViewRequest (for inline bots)
+                    console.print(f"[yellow]⚠️  Trying alternative method...[/yellow]")
+                    result = await self.client(functions.messages.RequestWebViewRequest(
+                        peer=bot,
+                        bot=bot,
+                        platform='android',
+                        url='',
+                        start_param=start_param if start_param else ""
+                    ))
             
             # Parse the URL to extract query parameters
             parsed_url = urlparse(result.url)
@@ -518,7 +533,10 @@ async def main():
             bot_usernames = [bot.strip() for bot in bot_username_input.split(',') if bot.strip()]
             console.print()
         
-        # Process each bot
+        # Track successful bots for homepage fetching
+        successful_bots = []
+        
+        # Process each bot - Generate initData only
         for idx, bot_username in enumerate(bot_usernames, 1):
             if len(bot_usernames) > 1:
                 console.print(f"[bold yellow]═══ Processing Bot {idx}/{len(bot_usernames)}: @{bot_username} ═══[/bold yellow]")
@@ -554,6 +572,9 @@ async def main():
                     with open(initdata_filename, 'w') as f:
                         f.write(web_app_data['init_data'])
                     results_table.add_row("💾 Saved to", initdata_filename)
+                    
+                    # Mark as successful
+                    successful_bots.append(bot_username)
                 else:
                     results_table.add_row("⚠️  Note", "No initData in query parameters")
                 
@@ -563,54 +584,110 @@ async def main():
                     border_style="green"
                 ))
                 console.print()
-                    
-            # Fetch homepage
-            console.print(Panel(
-                "[bold cyan]Fetching Homepage...[/bold cyan]",
-                border_style="cyan"
-            ))
-            console.print()
-            
-            homepage = await launcher.fetch_homepage(bot_username)
-            
-            if homepage:
-                # Save homepage to file
-                filename = f"homepage_{bot_username}.html"
-                with open(filename, 'w', encoding='utf-8') as f:
-                    f.write(homepage)
-                
-                # Create summary table
-                summary_table = Table(show_header=False, box=box.SIMPLE)
-                summary_table.add_column("Label", style="cyan")
-                summary_table.add_column("Value", style="green")
-                summary_table.add_row("📄 Filename", filename)
-                summary_table.add_row("📊 Size", f"{len(homepage) / 1024:.2f} KB")
-                summary_table.add_row("📝 Lines", str(homepage.count('\n')))
-                
-                console.print(Panel(
-                    summary_table,
-                    title="[bold green]✅ Homepage Saved Successfully![/bold green]",
-                    border_style="green"
-                ))
-                console.print()
-                
-                # Show preview
-                preview_lines = homepage[:400]
-                if len(homepage) > 400:
-                    preview_lines += "\n..."
-                
-                syntax = Syntax(preview_lines, "html", theme="monokai", line_numbers=False)
-                console.print(Panel(
-                    syntax,
-                    title="[bold yellow]📄 Homepage Preview[/bold yellow]",
-                    border_style="yellow"
-                ))
-            
-            console.print()
             
             # Add separator between bots
             if idx < len(bot_usernames):
                 console.print()
+        
+        # Ask user if they want to fetch homepage for any bots
+        if successful_bots:
+            console.print()
+            console.print("[bold cyan]📥 Homepage Fetching[/bold cyan]")
+            console.print()
+            
+            # Create selection table
+            selection_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+            selection_table.add_column("#", style="cyan", width=5)
+            selection_table.add_column("Bot Username", style="green")
+            
+            for idx, bot_username in enumerate(successful_bots, 1):
+                selection_table.add_row(str(idx), f"@{bot_username}")
+            
+            console.print(selection_table)
+            console.print()
+            console.print("[cyan]Options:[/cyan]")
+            console.print("  • Enter bot numbers (comma-separated, e.g., 1,2,3)")
+            console.print("  • Enter 'all' to fetch all")
+            console.print("  • Enter 'none' or press Enter to skip")
+            console.print()
+            
+            fetch_choice = Prompt.ask(
+                "[bold cyan]Select bots to fetch homepage[/bold cyan]",
+                default="none"
+            ).strip().lower()
+            
+            bots_to_fetch = []
+            
+            if fetch_choice == "all":
+                bots_to_fetch = successful_bots
+            elif fetch_choice != "none" and fetch_choice != "":
+                try:
+                    indices = [int(i.strip()) for i in fetch_choice.split(',') if i.strip()]
+                    bots_to_fetch = [successful_bots[i-1] for i in indices if 1 <= i <= len(successful_bots)]
+                except (ValueError, IndexError):
+                    console.print("[yellow]⚠️  Invalid selection, skipping homepage fetch[/yellow]")
+                    bots_to_fetch = []
+            
+            # Fetch homepage for selected bots
+            if bots_to_fetch:
+                console.print()
+                console.print(f"[green]✓ Fetching homepage for {len(bots_to_fetch)} bot(s)...[/green]")
+                console.print()
+                
+                for idx, bot_username in enumerate(bots_to_fetch, 1):
+                    if len(bots_to_fetch) > 1:
+                        console.print(f"[bold yellow]═══ Fetching Homepage {idx}/{len(bots_to_fetch)}: @{bot_username} ═══[/bold yellow]")
+                        console.print()
+                    
+                    # Fetch homepage
+                    console.print(Panel(
+                        f"[bold cyan]Fetching Homepage for @{bot_username}...[/bold cyan]",
+                        border_style="cyan"
+                    ))
+                    console.print()
+                    
+                    homepage = await launcher.fetch_homepage(bot_username)
+                    
+                    if homepage:
+                        # Save homepage to file
+                        filename = f"homepage_{bot_username}.html"
+                        with open(filename, 'w', encoding='utf-8') as f:
+                            f.write(homepage)
+                        
+                        # Create summary table
+                        summary_table = Table(show_header=False, box=box.SIMPLE)
+                        summary_table.add_column("Label", style="cyan")
+                        summary_table.add_column("Value", style="green")
+                        summary_table.add_row("📄 Filename", filename)
+                        summary_table.add_row("📊 Size", f"{len(homepage) / 1024:.2f} KB")
+                        summary_table.add_row("📝 Lines", str(homepage.count('\n')))
+                        
+                        console.print(Panel(
+                            summary_table,
+                            title="[bold green]✅ Homepage Saved Successfully![/bold green]",
+                            border_style="green"
+                        ))
+                        console.print()
+                        
+                        # Show preview
+                        preview_lines = homepage[:400]
+                        if len(homepage) > 400:
+                            preview_lines += "\n..."
+                        
+                        syntax = Syntax(preview_lines, "html", theme="monokai", line_numbers=False)
+                        console.print(Panel(
+                            syntax,
+                            title="[bold yellow]📄 Homepage Preview[/bold yellow]",
+                            border_style="yellow"
+                        ))
+                    
+                    console.print()
+                    
+                    # Add separator between bots
+                    if idx < len(bots_to_fetch):
+                        console.print()
+            else:
+                console.print("[yellow]⚠️  No bots selected for homepage fetching[/yellow]")
         
         console.print()
         
