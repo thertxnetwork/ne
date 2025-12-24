@@ -752,6 +752,140 @@ class TelegramWebAppLauncher:
             
         except Exception as e:
             console.print(f"[red]❌ Error getting bot info: {e}[/red]")
+    
+    async def submit_account_phone(self, bearer_token: str, phone: str, submit_type: str, base_url: str):
+        """
+        Submit a phone number to the backend for account registration.
+        
+        Args:
+            bearer_token: Bearer token for authentication
+            phone: Phone number to submit (e.g., "40753074864")
+            submit_type: Type of submission (e.g., "login")
+            base_url: Base URL for the API
+            
+        Returns:
+            Dictionary with response data including sentCodeInfo
+        """
+        try:
+            url = f"{base_url}/telegram/submit-account-phone"
+            
+            headers = {
+                'Authorization': f'Bearer {bearer_token}',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36',
+                'Origin': 'https://numbernewone.netlify.app',
+                'Referer': 'https://numbernewone.netlify.app/'
+            }
+            
+            payload = {
+                "phone": phone,
+                "submitType": submit_type
+            }
+            
+            console.print()
+            console.print(Panel(
+                f"[cyan]Submitting phone:[/cyan] [yellow]{phone}[/yellow]\n[cyan]Submit type:[/cyan] [yellow]{submit_type}[/yellow]",
+                title="[bold cyan]📱 Submitting Account Phone[/bold cyan]",
+                border_style="cyan"
+            ))
+            
+            with console.status("[bold cyan]Sending phone number...", spinner="dots"):
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                console.print("[green]✅ Phone submitted successfully![/green]")
+                
+                # Display response
+                table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+                table.add_column("Field", style="cyan", width=20)
+                table.add_column("Value", style="green")
+                
+                table.add_row("Phone", data.get('phone', 'N/A'))
+                
+                sent_code_info = data.get('sentCodeInfo', {})
+                table.add_row("Code Type", sent_code_info.get('codeType', 'N/A'))
+                table.add_row("Next Type", sent_code_info.get('nextType', 'N/A'))
+                table.add_row("Timeout", str(sent_code_info.get('timeout', 'N/A')))
+                
+                console.print()
+                console.print(Panel(
+                    table,
+                    title="[bold green]✅ Phone Submission Response[/bold green]",
+                    border_style="green"
+                ))
+                
+                return data
+            else:
+                console.print(f"[red]❌ Failed to submit phone: HTTP {response.status_code}[/red]")
+                console.print(f"[red]Response: {response.text}[/red]")
+                return None
+                
+        except Exception as e:
+            console.print(f"[red]❌ Error submitting phone: {e}[/red]")
+            return None
+    
+    async def submit_account_code(self, bearer_token: str, phone: str, code: str, base_url: str):
+        """
+        Submit verification code for account registration.
+        
+        Args:
+            bearer_token: Bearer token for authentication
+            phone: Phone number that received the code
+            code: Verification code received
+            base_url: Base URL for the API
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            url = f"{base_url}/telegram/submit-account-code"
+            
+            headers = {
+                'Authorization': f'Bearer {bearer_token}',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36',
+                'Origin': 'https://numbernewone.netlify.app',
+                'Referer': 'https://numbernewone.netlify.app/'
+            }
+            
+            payload = {
+                "phone": phone,
+                "code": code
+            }
+            
+            console.print()
+            console.print(Panel(
+                f"[cyan]Phone:[/cyan] [yellow]{phone}[/yellow]\n[cyan]Code:[/cyan] [yellow]{code}[/yellow]",
+                title="[bold cyan]🔐 Submitting Verification Code[/bold cyan]",
+                border_style="cyan"
+            ))
+            
+            with console.status("[bold cyan]Verifying code...", spinner="dots"):
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
+            
+            if response.status_code == 204:
+                console.print("[green]✅ Account submitted successfully! (Status: 204 No Content)[/green]")
+                console.print("[green]✓ The account has been added to your dashboard[/green]")
+                return True
+            elif response.status_code == 200:
+                console.print("[green]✅ Account submitted successfully![/green]")
+                try:
+                    data = response.json()
+                    console.print(f"[green]Response: {json.dumps(data, indent=2)}[/green]")
+                except:
+                    pass
+                return True
+            else:
+                console.print(f"[red]❌ Failed to submit code: HTTP {response.status_code}[/red]")
+                console.print(f"[red]Response: {response.text}[/red]")
+                return False
+                
+        except Exception as e:
+            console.print(f"[red]❌ Error submitting code: {e}[/red]")
+            return False
 
 
 def find_session_files() -> List[str]:
@@ -918,8 +1052,9 @@ def show_menu():
     menu_table.add_row("2", "📱 View Pending Accounts")
     menu_table.add_row("3", "✅ View Accepted Accounts")
     menu_table.add_row("4", "❌ View Rejected Accounts")
-    menu_table.add_row("5", "🔄 Re-authenticate (Get New Token)")
-    menu_table.add_row("6", "🚪 Exit")
+    menu_table.add_row("5", "➕ Submit New Account (Phone + Code)")
+    menu_table.add_row("6", "🔄 Re-authenticate (Get New Token)")
+    menu_table.add_row("7", "🚪 Exit")
     
     console.print(Panel(
         menu_table,
@@ -928,7 +1063,7 @@ def show_menu():
     ))
     console.print()
     
-    choice = Prompt.ask("[bold cyan]Select an option (1-6)[/bold cyan]", default="1")
+    choice = Prompt.ask("[bold cyan]Select an option (1-7)[/bold cyan]", default="1")
     return choice
 
 
@@ -937,7 +1072,7 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
     try:
         choice_num = int(choice)
     except ValueError:
-        console.print("[red]Invalid input. Please enter a number between 1-6.[/red]")
+        console.print("[red]Invalid input. Please enter a number between 1-7.[/red]")
         return bearer_token, False  # Continue loop
     
     if choice_num == 1:
@@ -985,6 +1120,52 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
         return bearer_token, False  # Continue loop
     
     elif choice_num == 5:
+        # Submit New Account
+        console.print()
+        console.print("[cyan]📱 Account Submission Process[/cyan]")
+        console.print()
+        
+        # Get phone number
+        phone = Prompt.ask("[bold cyan]Enter phone number (e.g., 40753074864)[/bold cyan]")
+        
+        # Get submit type
+        submit_type = Prompt.ask(
+            "[bold cyan]Enter submit type[/bold cyan]",
+            default="login",
+            choices=["login", "register"]
+        )
+        
+        # Submit phone
+        phone_response = await launcher.submit_account_phone(bearer_token, phone, submit_type, base_url)
+        
+        if phone_response:
+            # Wait a moment for the code
+            console.print()
+            console.print("[yellow]⏳ Waiting for verification code...[/yellow]")
+            console.print("[yellow]Please check your Telegram app for the code[/yellow]")
+            console.print()
+            
+            # Get verification code
+            code = Prompt.ask("[bold cyan]Enter the verification code you received[/bold cyan]")
+            
+            # Submit code
+            success = await launcher.submit_account_code(bearer_token, phone, code, base_url)
+            
+            if success:
+                console.print()
+                console.print("[green]🎉 Account successfully added to your dashboard![/green]")
+                console.print("[cyan]💡 You can now view it in the Pending/Accepted/Rejected accounts sections[/cyan]")
+            else:
+                console.print()
+                console.print("[red]❌ Failed to submit account. Please try again.[/red]")
+        else:
+            console.print()
+            console.print("[red]❌ Failed to submit phone number. Please check your input and try again.[/red]")
+        
+        console.print()
+        return bearer_token, False  # Continue loop
+    
+    elif choice_num == 6:
         # Re-authenticate
         console.print()
         console.print("[yellow]⚠️  Re-authentication requested[/yellow]")
@@ -992,7 +1173,7 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
         console.print()
         return None, True  # Signal to re-authenticate
     
-    elif choice_num == 6:
+    elif choice_num == 7:
         # Exit
         console.print()
         console.print("[cyan]👋 Thank you for using Telegram Web App Launcher![/cyan]")
@@ -1000,7 +1181,7 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
         return bearer_token, True  # Exit loop
     
     else:
-        console.print("[red]Invalid option. Please select 1-6.[/red]")
+        console.print("[red]Invalid option. Please select 1-7.[/red]")
         return bearer_token, False  # Continue loop
 
 
