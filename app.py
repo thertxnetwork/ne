@@ -174,38 +174,57 @@ class TelegramWebAppLauncher:
                 full_bot = await self.client.get_entity(bot)
                 
                 result = None
+                web_app_url = None
                 
-                # Method 1: Try RequestAppWebViewRequest (for bots with attached web apps)
-                if hasattr(full_bot, 'bot_info_version'):
+                # Get bot info to find web app URL
+                try:
+                    bot_info = await self.client(functions.users.GetFullUserRequest(bot))
+                    
+                    if bot_info.full_user.bot_info and hasattr(bot_info.full_user.bot_info, 'menu_button'):
+                        menu_button = bot_info.full_user.bot_info.menu_button
+                        if hasattr(menu_button, 'url'):
+                            web_app_url = menu_button.url
+                            console.print(f"[green]✓ Found web app URL: {web_app_url[:60]}...[/green]")
+                except Exception as e:
+                    console.print(f"[yellow]⚠️  Could not get bot info: {str(e)[:80]}[/yellow]")
+                
+                # Method 1: Try RequestWebViewRequest with the actual web app URL
+                if web_app_url and not result:
                     try:
-                        # Get bot info to find web apps
-                        bot_info = await self.client(functions.users.GetFullUserRequest(bot))
-                        
-                        if bot_info.full_user.bot_info and hasattr(bot_info.full_user.bot_info, 'menu_button'):
-                            menu_button = bot_info.full_user.bot_info.menu_button
-                            if hasattr(menu_button, 'url'):
-                                # Bot has web app menu button
-                                console.print(f"[green]✓ Found web app menu button[/green]")
-                                
-                                # Extract short name from URL if possible
-                                from telethon.tl.types import InputBotAppShortName
-                                result = await self.client(functions.messages.RequestAppWebViewRequest(
-                                    peer=bot,
-                                    app=InputBotAppShortName(
-                                        bot_id=bot,
-                                        short_name="start"  # Common short name
-                                    ),
-                                    platform='android',
-                                    write_allowed=True,
-                                    start_param=start_param if start_param else ""
-                                ))
+                        console.print(f"[cyan]Trying method 1 (with web app URL)...[/cyan]")
+                        result = await self.client(functions.messages.RequestWebViewRequest(
+                            peer=bot,
+                            bot=bot,
+                            platform='android',
+                            url=web_app_url
+                        ))
+                        console.print(f"[green]✓ Method 1 succeeded![/green]")
                     except Exception as e:
                         console.print(f"[yellow]⚠️  Method 1 failed: {str(e)[:100]}[/yellow]")
                 
-                # Method 2: Try with simple RequestWebViewRequest using from_bot_menu
+                # Method 2: Try RequestAppWebViewRequest (for bots with attached web apps)
+                if hasattr(full_bot, 'bot_info_version') and not result:
+                    try:
+                        console.print(f"[cyan]Trying method 2 (RequestAppWebViewRequest)...[/cyan]")
+                        from telethon.tl.types import InputBotAppShortName
+                        result = await self.client(functions.messages.RequestAppWebViewRequest(
+                            peer=bot,
+                            app=InputBotAppShortName(
+                                bot_id=bot,
+                                short_name="start"  # Common short name
+                            ),
+                            platform='android',
+                            write_allowed=True,
+                            start_param=start_param if start_param else ""
+                        ))
+                        console.print(f"[green]✓ Method 2 succeeded![/green]")
+                    except Exception as e:
+                        console.print(f"[yellow]⚠️  Method 2 failed: {str(e)[:100]}[/yellow]")
+                
+                # Method 3: Try with from_bot_menu flag
                 if not result:
                     try:
-                        console.print(f"[yellow]⚠️  Trying method 2 (from_bot_menu)...[/yellow]")
+                        console.print(f"[cyan]Trying method 3 (from_bot_menu)...[/cyan]")
                         result = await self.client(functions.messages.RequestWebViewRequest(
                             peer=bot,
                             bot=bot,
@@ -213,13 +232,14 @@ class TelegramWebAppLauncher:
                             from_bot_menu=True,
                             url=''
                         ))
+                        console.print(f"[green]✓ Method 3 succeeded![/green]")
                     except Exception as e:
-                        console.print(f"[yellow]⚠️  Method 2 failed: {str(e)[:100]}[/yellow]")
+                        console.print(f"[yellow]⚠️  Method 3 failed: {str(e)[:100]}[/yellow]")
                 
-                # Method 3: Try without from_bot_menu but with start_param
+                # Method 4: Try without from_bot_menu but with start_param
                 if not result:
                     try:
-                        console.print(f"[yellow]⚠️  Trying method 3 (with start_param)...[/yellow]")
+                        console.print(f"[cyan]Trying method 4 (with start_param)...[/cyan]")
                         result = await self.client(functions.messages.RequestWebViewRequest(
                             peer=bot,
                             bot=bot,
@@ -227,9 +247,9 @@ class TelegramWebAppLauncher:
                             url='',
                             start_param=start_param if start_param else ""
                         ))
+                        console.print(f"[green]✓ Method 4 succeeded![/green]")
                     except Exception as e:
-                        console.print(f"[red]❌ All methods failed. Error: {e}[/red]")
-                        return None
+                        console.print(f"[yellow]⚠️  Method 4 failed: {str(e)[:100]}[/yellow]")
             
             if not result:
                 console.print(f"[red]❌ Could not generate initData for this bot[/red]")
