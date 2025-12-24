@@ -1122,7 +1122,11 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
     elif choice_num == 5:
         # Submit New Account
         console.print()
-        console.print("[cyan]📱 Account Submission Process[/cyan]")
+        console.print("[cyan]📱 Account Submission Process (2 Steps)[/cyan]")
+        console.print("[cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/cyan]")
+        console.print()
+        
+        console.print("[bold yellow]Step 1: Submit Phone Number[/bold yellow]")
         console.print()
         
         # Get phone number
@@ -1135,18 +1139,25 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
             choices=["login", "register"]
         )
         
+        console.print()
+        console.print("[yellow]📤 Sending phone number to server...[/yellow]")
+        
         # Submit phone
         phone_response = await launcher.submit_account_phone(bearer_token, phone, submit_type, base_url)
         
         if phone_response:
-            # Wait a moment for the code
             console.print()
-            console.print("[yellow]⏳ Waiting for verification code...[/yellow]")
-            console.print("[yellow]Please check your Telegram app for the code[/yellow]")
+            console.print("[bold yellow]Step 2: Enter Verification Code[/bold yellow]")
+            console.print()
+            console.print("[green]✅ OTP has been sent to your Telegram app![/green]")
+            console.print("[yellow]⏳ Please check your Telegram app for the verification code[/yellow]")
             console.print()
             
             # Get verification code
             code = Prompt.ask("[bold cyan]Enter the verification code you received[/bold cyan]")
+            
+            console.print()
+            console.print("[yellow]📤 Submitting verification code...[/yellow]")
             
             # Submit code
             success = await launcher.submit_account_code(bearer_token, phone, code, base_url)
@@ -1157,7 +1168,7 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
                 console.print("[cyan]💡 You can now view it in the Pending/Accepted/Rejected accounts sections[/cyan]")
             else:
                 console.print()
-                console.print("[red]❌ Failed to submit account. Please try again.[/red]")
+                console.print("[red]❌ Failed to submit verification code. Please try again.[/red]")
         else:
             console.print()
             console.print("[red]❌ Failed to submit phone number. Please check your input and try again.[/red]")
