@@ -1,6 +1,25 @@
 # Telegram Web App Launcher
 
-A Python script to open Telegram web apps with initdata and fetch homepage content from Telegram sessions.
+A Python script with a **beautiful terminal UI** to open Telegram web apps with initdata and fetch homepage content from Telegram sessions.
+
+![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+## 🎨 Beautiful Terminal UI
+
+This script features a stunning, colorful terminal interface powered by [Rich](https://github.com/Textualize/rich):
+- 🌈 Multiple colors and styles
+- 📊 Beautiful tables and panels
+- ⚡ Progress indicators and spinners
+- 🎯 Syntax highlighting for code previews
+- ✨ Professional and modern design
+
+### UI Demo
+
+Run the demo to see the beautiful interface:
+```bash
+python demo_ui.py
+```
 
 ## Features
 
@@ -9,6 +28,8 @@ A Python script to open Telegram web apps with initdata and fetch homepage conte
 - 📥 Fetch homepage content from Telegram bots/web apps
 - 💾 Save initData and homepage to files
 - 🔐 Secure session management with Telethon
+- 🎨 **Beautiful, colorful terminal UI**
+- 📊 **Interactive prompts and progress indicators**
 
 ## Prerequisites
 
@@ -65,57 +86,78 @@ You can set these in `.env` file or provide them when prompted:
 - `API_HASH`: Your Telegram API Hash (string)
 - `PHONE`: Your phone number with country code (e.g., +1234567890)
 
-### Example
+### Example Output
+
+The script provides a beautiful, colorful terminal experience:
 
 ```bash
 $ python telegram_webapp.py
 
-============================================================
-Telegram Web App Launcher with InitData
-============================================================
+╔══════════════════════════════════════════════════════════╗
+║  🚀 TELEGRAM WEB APP LAUNCHER WITH INITDATA 🚀  ║
+╚══════════════════════════════════════════════════════════╝
 
-Connecting to Telegram...
-Already authenticated!
+╭─────────────── Features ───────────────╮
+│  ✨ Open Telegram web apps programmatically  │
+│  🔑 Generate initData for web app authentication  │
+│  📥 Fetch homepage content from Telegram bots  │
+│  💾 Save initData and homepage to files  │
+╰────────────────────────────────────────╯
+
+📋 Configuration
+
+✓ API ID loaded from environment
+✓ API Hash loaded from environment
+✓ Phone loaded from environment
+
+╭─ Connecting to Telegram... ─╮
+│ Connecting to Telegram...   │
+╰──────────────────────────────╯
+
+✅ Already authenticated!
 
 Enter bot username (without @): mybot
 
-==================================================
-Bot Information:
-==================================================
-Bot ID: 123456789
-Bot Username: @mybot
-Bot Name: My Bot
+╭───────────── Bot & User Information ─────────────╮
+│ Property            │ Value                      │
+├─────────────────────┼────────────────────────────┤
+│ 🤖 Bot ID          │ 123456789                  │
+│ 🏷️  Bot Username   │ @mybot                     │
+│ 📝 Bot Name        │ My Bot                     │
+│                     │                            │
+│ 👤 Your User ID    │ 987654321                  │
+│ 🏷️  Your Username  │ @myusername                │
+│ 📝 Your Name       │ John Doe                   │
+╰───────────────────────────────────────────────────╯
 
-Your Information:
-User ID: 987654321
-Username: @myusername
-Name: John Doe
-==================================================
+╭────────────── ✅ InitData Generated Successfully! ──────────────╮
+│ Property      │ Value                                           │
+├───────────────┼─────────────────────────────────────────────────┤
+│ 🌐 URL        │ https://example.com/app?tgWebAppVersion=6.0...│
+│ 🆔 Query ID   │ AAHdF6IQAAAAANwXohAAGOMa                       │
+│ 🔑 InitData   │ query_id=AAHdF6IQAAAAANwXohAAGOMa&user=...    │
+│ 💾 Saved to   │ initdata.txt                                   │
+╰─────────────────────────────────────────────────────────────────╯
 
-============================================================
-Generating InitData...
-============================================================
+╭────────────── Fetching Homepage... ──────────────╮
+│ Fetching homepage...                             │
+╰──────────────────────────────────────────────────╯
 
-Web App Data Generated Successfully!
-------------------------------------------------------------
-URL: https://example.com/app?...
-Query ID: AAHdF6IQAAAAANwXohAAGOMa
+✅ Successfully fetched homepage (15.43 KB)
 
-InitData (first 100 chars):
-query_id=AAHdF6IQAAAAANwXohAAGOMa&user=%7B%22id%22%3A987654321%2C%22first_name%22%3A%22John%22...
+╭────────────── ✅ Homepage Saved Successfully! ──────────────╮
+│ Label      │ Value                                          │
+├────────────┼────────────────────────────────────────────────┤
+│ 📄 Filename│ homepage_mybot.html                           │
+│ 📊 Size    │ 15.43 KB                                      │
+│ 📝 Lines   │ 342                                           │
+╰────────────────────────────────────────────────────────────╯
 
-Full initData saved to: initdata.txt
+╔══════════════════════════════════════════════════════╗
+║  ✨ All operations completed successfully! ✨       ║
+╚══════════════════════════════════════════════════════╝
 
-============================================================
-Fetching Homepage...
-============================================================
-
-Web App URL: https://example.com/app?...
-InitData: query_id=AAHdF6IQAAAAANwXohAAGOMa&user=%7B%22id...
-
-Successfully fetched homepage (size: 15234 bytes)
-
-Homepage saved to: homepage_mybot.html
+✅ Disconnected from Telegram.
 ```
 
 ## Output Files
@@ -171,9 +213,16 @@ launcher = TelegramWebAppLauncher(api_id, api_hash, phone)
 
 ## Dependencies
 
-- `telethon`: Telegram client library
-- `requests`: HTTP library
+- `telethon`: Telegram client library for Python
+- `requests`: HTTP library for fetching web content
 - `python-dotenv`: Environment variable management
+- `rich`: Beautiful terminal formatting and UI components
+- `colorama`: Cross-platform colored terminal text
+
+All dependencies are listed in `requirements.txt` and can be installed with:
+```bash
+pip install -r requirements.txt
+```
 
 ## License
 
