@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Telegram Web App Launcher with InitData
+Telegram Web App Launcher with InitData and Authorization
 
 This script allows you to:
-1. Open a Telegram web app with initdata
-2. Fetch the homepage from a Telegram session
+1. Connect to Telegram and select a session
+2. Generate initData for a bot's web app
+3. Authorize with the backend API
 
 Requirements:
 - Telegram API credentials (API_ID and API_HASH)
-- Phone number for authentication
-- Bot username or web app URL
+- Phone number for authentication (only for new sessions)
+- Bot username
 
 Usage:
     python app.py
@@ -257,17 +258,38 @@ class TelegramWebAppLauncher:
             
             # Parse the URL to extract query parameters
             parsed_url = urlparse(result.url)
-            query_params = parse_qs(parsed_url.fragment if parsed_url.fragment else parsed_url.query)
             
-            # Extract tgWebAppData (initData)
+            # Extract tgWebAppData (initData) from fragment or query
             init_data = None
-            if 'tgWebAppData' in query_params:
-                init_data = query_params['tgWebAppData'][0]
-            elif parsed_url.fragment:
-                # Try to extract from fragment
+            
+            # Try fragment first (format: #tgWebAppData=...)
+            if parsed_url.fragment:
                 fragment_params = parse_qs(parsed_url.fragment)
                 if 'tgWebAppData' in fragment_params:
                     init_data = fragment_params['tgWebAppData'][0]
+            
+            # Try query parameters if not in fragment
+            if not init_data:
+                query_params = parse_qs(parsed_url.query)
+                if 'tgWebAppData' in query_params:
+                    init_data = query_params['tgWebAppData'][0]
+            
+            # If still no initData, try to extract from the full URL
+            if not init_data and 'tgWebAppData=' in result.url:
+                # Extract everything after tgWebAppData=
+                try:
+                    init_data_start = result.url.find('tgWebAppData=') + len('tgWebAppData=')
+                    init_data_part = result.url[init_data_start:]
+                    # Stop at & or # if present
+                    if '&' in init_data_part:
+                        init_data_part = init_data_part.split('&')[0]
+                    if '#' in init_data_part:
+                        init_data_part = init_data_part.split('#')[0]
+                    # URL decode
+                    from urllib.parse import unquote
+                    init_data = unquote(init_data_part)
+                except Exception:
+                    pass
             
             return {
                 'url': result.url,
@@ -279,6 +301,88 @@ class TelegramWebAppLauncher:
             }
         except Exception as e:
             console.print(f"[red]❌ Error generating initData: {e}[/red]")
+            return None
+    
+    async def authorize_backend(self, init_data: str, auth_url: str = "https://numbernewone.com/auth/telegram/authorize") -> Optional[Dict]:
+        """
+        Authorize with the backend API using initData.
+        
+        Args:
+            init_data: The initData string
+            auth_url: Backend authorization URL
+            
+        Returns:
+            Response from the backend as dictionary
+        """
+        try:
+            console.print(Panel(
+                f"[bold cyan]Authorizing with Backend...[/bold cyan]\n[yellow]URL: {auth_url}[/yellow]",
+                border_style="cyan"
+            ))
+            console.print()
+            
+            # Prepare the payload
+            payload = {
+                "initData": init_data
+            }
+            
+            # Make POST request
+            with console.status("[bold cyan]Sending authorization request...", spinner="dots"):
+                response = requests.post(
+                    auth_url,
+                    json=payload,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36'
+                    },
+                    timeout=30
+                )
+            
+            # Check response
+            if response.status_code == 200:
+                console.print(f"[green]✅ Authorization successful! (Status: {response.status_code})[/green]")
+                
+                # Try to parse JSON response
+                try:
+                    response_data = response.json()
+                    
+                    # Display response in a nice table
+                    response_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+                    response_table.add_column("Field", style="cyan", width=20)
+                    response_table.add_column("Value", style="green")
+                    
+                    for key, value in response_data.items():
+                        # Convert value to string, truncate if too long
+                        value_str = str(value)
+                        if len(value_str) > 100:
+                            value_str = value_str[:97] + "..."
+                        response_table.add_row(key, value_str)
+                    
+                    console.print()
+                    console.print(Panel(
+                        response_table,
+                        title="[bold green]✅ Backend Response[/bold green]",
+                        border_style="green"
+                    ))
+                    console.print()
+                    
+                    return response_data
+                except Exception as e:
+                    console.print(f"[yellow]⚠️  Response is not JSON: {response.text[:200]}[/yellow]")
+                    return {"response": response.text, "status_code": response.status_code}
+            else:
+                console.print(f"[red]❌ Authorization failed! (Status: {response.status_code})[/red]")
+                console.print(f"[red]Response: {response.text[:500]}[/red]")
+                return None
+                
+        except requests.exceptions.Timeout:
+            console.print(f"[red]❌ Request timeout after 30 seconds[/red]")
+            return None
+        except requests.exceptions.RequestException as e:
+            console.print(f"[red]❌ Request error: {e}[/red]")
+            return None
+        except Exception as e:
+            console.print(f"[red]❌ Error during authorization: {e}[/red]")
             return None
             
     async def fetch_homepage(self, bot_username: str) -> Optional[str]:
@@ -515,10 +619,10 @@ async def main():
     # Show features
     features = Table(show_header=False, box=None, padding=(0, 2))
     features.add_column(style="cyan")
-    features.add_row("✨ Open Telegram web apps programmatically")
+    features.add_row("✨ Connect to Telegram with saved sessions")
     features.add_row("🔑 Generate initData for web app authentication")
-    features.add_row("📥 Fetch homepage content from Telegram bots")
-    features.add_row("💾 Save initData and homepage to files")
+    features.add_row("🌐 Authorize with backend API")
+    features.add_row("💾 Save initData to file")
     
     console.print(Panel(features, title="[bold magenta]Features[/bold magenta]", border_style="magenta"))
     console.print()
@@ -580,182 +684,76 @@ async def main():
         await launcher.connect()
         console.print()
         
-        # Get bot username(s) from environment or prompt
-        bot_usernames_env = os.getenv('BOT_USERNAME', '').strip()
+        # Get single bot username from environment or prompt
+        bot_username = os.getenv('BOT_USERNAME', '').strip()
         
-        if bot_usernames_env:
-            # Parse bot usernames from environment (comma-separated)
-            bot_usernames = [bot.strip() for bot in bot_usernames_env.split(',') if bot.strip()]
-            console.print(f"[green]✓ Bot username(s) loaded from environment: {', '.join(bot_usernames)}[/green]")
+        if bot_username:
+            console.print(f"[green]✓ Bot username loaded from environment: {bot_username}[/green]")
             console.print()
         else:
             # Prompt for bot username
-            bot_username_input = Prompt.ask("[bold cyan]Enter bot username(s) (comma-separated for multiple, without @)[/bold cyan]")
-            bot_usernames = [bot.strip() for bot in bot_username_input.split(',') if bot.strip()]
+            bot_username = Prompt.ask("[bold cyan]Enter bot username (without @)[/bold cyan]")
             console.print()
         
-        # Track successful bots for homepage fetching
-        successful_bots = []
+        # Show bot information
+        await launcher.get_bot_info(bot_username)
         
-        # Process each bot - Generate initData only
-        for idx, bot_username in enumerate(bot_usernames, 1):
-            if len(bot_usernames) > 1:
-                console.print(f"[bold yellow]═══ Processing Bot {idx}/{len(bot_usernames)}: @{bot_username} ═══[/bold yellow]")
-                console.print()
+        # Generate initData
+        console.print(Panel(
+            "[bold cyan]Generating InitData...[/bold cyan]",
+            border_style="cyan"
+        ))
+        console.print()
+        
+        web_app_data = await launcher.generate_init_data(bot_username)
+        
+        if web_app_data and web_app_data.get('init_data'):
+            # Create results table
+            results_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+            results_table.add_column("Property", style="cyan", width=15)
+            results_table.add_column("Value", style="green")
             
-            # Show bot information
-            await launcher.get_bot_info(bot_username)
+            results_table.add_row("🌐 URL", web_app_data['url'][:60] + "..." if len(web_app_data['url']) > 60 else web_app_data['url'])
+            results_table.add_row("🆔 Query ID", str(web_app_data.get('query_id', 'N/A')))
             
-            # Generate initData
+            init_data = web_app_data['init_data']
+            init_data_preview = init_data[:80] + "..." if len(init_data) > 80 else init_data
+            results_table.add_row("🔑 InitData", init_data_preview)
+            
+            # Save to file
+            with open('initdata.txt', 'w') as f:
+                f.write(init_data)
+            results_table.add_row("💾 Saved to", "initdata.txt")
+            
             console.print(Panel(
-                "[bold cyan]Generating InitData...[/bold cyan]",
-                border_style="cyan"
+                results_table,
+                title="[bold green]✅ InitData Generated Successfully![/bold green]",
+                border_style="green"
             ))
             console.print()
             
-            web_app_data = await launcher.generate_init_data(bot_username)
+            # Ask if user wants to authorize with backend
+            auth_url = os.getenv('AUTH_URL', 'https://numbernewone.com/auth/telegram/authorize')
             
-            if web_app_data:
-                # Create results table
-                results_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-                results_table.add_column("Property", style="cyan", width=15)
-                results_table.add_column("Value", style="green")
-                
-                results_table.add_row("🌐 URL", web_app_data['url'][:60] + "..." if len(web_app_data['url']) > 60 else web_app_data['url'])
-                results_table.add_row("🆔 Query ID", str(web_app_data.get('query_id', 'N/A')))
-                
-                if web_app_data.get('init_data'):
-                    init_data_preview = web_app_data['init_data'][:80] + "..."
-                    results_table.add_row("🔑 InitData", init_data_preview)
-                    
-                    # Save to file with bot username
-                    initdata_filename = f"initdata_{bot_username}.txt" if len(bot_usernames) > 1 else "initdata.txt"
-                    with open(initdata_filename, 'w') as f:
-                        f.write(web_app_data['init_data'])
-                    results_table.add_row("💾 Saved to", initdata_filename)
-                    
-                    # Mark as successful
-                    successful_bots.append(bot_username)
-                else:
-                    results_table.add_row("⚠️  Note", "No initData in query parameters")
-                
-                console.print(Panel(
-                    results_table,
-                    title="[bold green]✅ InitData Generated Successfully![/bold green]",
-                    border_style="green"
-                ))
+            if Confirm.ask("[bold cyan]Do you want to authorize with the backend API?[/bold cyan]", default=True):
                 console.print()
-            
-            # Add separator between bots
-            if idx < len(bot_usernames):
-                console.print()
-        
-        # Ask user if they want to fetch homepage for any bots
-        if successful_bots:
-            console.print()
-            console.print("[bold cyan]📥 Homepage Fetching[/bold cyan]")
-            console.print()
-            
-            # Create selection table
-            selection_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-            selection_table.add_column("#", style="cyan", width=5)
-            selection_table.add_column("Bot Username", style="green")
-            
-            for idx, bot_username in enumerate(successful_bots, 1):
-                selection_table.add_row(str(idx), f"@{bot_username}")
-            
-            console.print(selection_table)
-            console.print()
-            console.print("[cyan]Options:[/cyan]")
-            console.print("  • Enter bot numbers (comma-separated, e.g., 1,2,3)")
-            console.print("  • Enter 'all' to fetch all")
-            console.print("  • Enter 'none' or press Enter to skip")
-            console.print()
-            
-            fetch_choice = Prompt.ask(
-                "[bold cyan]Select bots to fetch homepage[/bold cyan]",
-                default="none"
-            ).strip().lower()
-            
-            bots_to_fetch = []
-            
-            if fetch_choice == "all":
-                bots_to_fetch = successful_bots
-            elif fetch_choice != "none" and fetch_choice != "":
-                try:
-                    indices = [int(i.strip()) for i in fetch_choice.split(',') if i.strip()]
-                    bots_to_fetch = [successful_bots[i-1] for i in indices if 1 <= i <= len(successful_bots)]
-                except (ValueError, IndexError):
-                    console.print("[yellow]⚠️  Invalid selection, skipping homepage fetch[/yellow]")
-                    bots_to_fetch = []
-            
-            # Fetch homepage for selected bots
-            if bots_to_fetch:
-                console.print()
-                console.print(f"[green]✓ Fetching homepage for {len(bots_to_fetch)} bot(s)...[/green]")
-                console.print()
+                auth_response = await launcher.authorize_backend(init_data, auth_url)
                 
-                for idx, bot_username in enumerate(bots_to_fetch, 1):
-                    if len(bots_to_fetch) > 1:
-                        console.print(f"[bold yellow]═══ Fetching Homepage {idx}/{len(bots_to_fetch)}: @{bot_username} ═══[/bold yellow]")
-                        console.print()
-                    
-                    # Fetch homepage
-                    console.print(Panel(
-                        f"[bold cyan]Fetching Homepage for @{bot_username}...[/bold cyan]",
-                        border_style="cyan"
-                    ))
+                if auth_response:
+                    # Save response to file
+                    with open('auth_response.json', 'w') as f:
+                        json.dump(auth_response, f, indent=2)
+                    console.print(f"[green]✓ Response saved to auth_response.json[/green]")
                     console.print()
-                    
-                    homepage = await launcher.fetch_homepage(bot_username)
-                    
-                    if homepage:
-                        # Save homepage to file
-                        filename = f"homepage_{bot_username}.html"
-                        with open(filename, 'w', encoding='utf-8') as f:
-                            f.write(homepage)
-                        
-                        # Create summary table
-                        summary_table = Table(show_header=False, box=box.SIMPLE)
-                        summary_table.add_column("Label", style="cyan")
-                        summary_table.add_column("Value", style="green")
-                        summary_table.add_row("📄 Filename", filename)
-                        summary_table.add_row("📊 Size", f"{len(homepage) / 1024:.2f} KB")
-                        summary_table.add_row("📝 Lines", str(homepage.count('\n')))
-                        
-                        console.print(Panel(
-                            summary_table,
-                            title="[bold green]✅ Homepage Saved Successfully![/bold green]",
-                            border_style="green"
-                        ))
-                        console.print()
-                        
-                        # Show preview
-                        preview_lines = homepage[:400]
-                        if len(homepage) > 400:
-                            preview_lines += "\n..."
-                        
-                        syntax = Syntax(preview_lines, "html", theme="monokai", line_numbers=False)
-                        console.print(Panel(
-                            syntax,
-                            title="[bold yellow]📄 Homepage Preview[/bold yellow]",
-                            border_style="yellow"
-                        ))
-                    
-                    console.print()
-                    
-                    # Add separator between bots
-                    if idx < len(bots_to_fetch):
-                        console.print()
-            else:
-                console.print("[yellow]⚠️  No bots selected for homepage fetching[/yellow]")
+        else:
+            console.print("[red]❌ Failed to generate initData[/red]")
         
         console.print()
         
         # Final success message
         success_panel = Panel(
             Align.center(
-                Text("✨ All operations completed successfully! ✨", style="bold green")
+                Text("✨ Operation completed successfully! ✨", style="bold green")
             ),
             border_style="bright_green",
             box=box.DOUBLE
