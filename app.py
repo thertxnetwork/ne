@@ -384,6 +384,134 @@ class TelegramWebAppLauncher:
         except Exception as e:
             console.print(f"[red]❌ Error during authorization: {e}[/red]")
             return None
+    
+    async def fetch_accounts(self, bearer_token: str, status: str = "pending", base_url: str = "https://numbernewone.com") -> Optional[Dict]:
+        """
+        Fetch accounts from the backend API with specific status.
+        
+        Args:
+            bearer_token: Bearer token from authorization response
+            status: Account status to filter (pending, accepted, rejected)
+            base_url: Base URL for the API
+            
+        Returns:
+            Response from the backend as dictionary containing accounts list
+        """
+        try:
+            console.print(Panel(
+                f"[bold cyan]Fetching {status.upper()} Accounts...[/bold cyan]\n[yellow]Status Filter: {status}[/yellow]",
+                border_style="cyan"
+            ))
+            console.print()
+            
+            # Build the filters and sorts
+            filters = [
+                {"model": "Account", "field": "status", "op": "eq", "value": status},
+                {"model": "Account", "field": "invoice_id", "op": "is", "value": None}
+            ]
+            sorts = [
+                {"model": "Account", "field": "created_at", "direction": "desc"}
+            ]
+            
+            # Build URL with parameters
+            params = {
+                "size": 24,
+                "filters": json.dumps(filters),
+                "sorts": json.dumps(sorts)
+            }
+            
+            accounts_url = f"{base_url}/accounts/"
+            
+            # Make GET request
+            with console.status(f"[bold cyan]Fetching {status} accounts...", spinner="dots"):
+                response = requests.get(
+                    accounts_url,
+                    params=params,
+                    headers={
+                        'Authorization': f'Bearer {bearer_token}',
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36',
+                        'Origin': 'https://numbernewone.netlify.app',
+                        'Referer': 'https://numbernewone.netlify.app/'
+                    },
+                    timeout=30
+                )
+            
+            # Check response
+            if response.status_code == 200:
+                console.print(f"[green]✅ Successfully fetched {status} accounts! (Status: {response.status_code})[/green]")
+                
+                # Parse JSON response
+                try:
+                    accounts_data = response.json()
+                    
+                    # Display summary
+                    total_accounts = accounts_data.get('total', 0)
+                    items_count = len(accounts_data.get('items', []))
+                    
+                    summary_table = Table(show_header=False, box=box.SIMPLE)
+                    summary_table.add_column("Label", style="cyan")
+                    summary_table.add_column("Value", style="green")
+                    summary_table.add_row("📊 Total Accounts", str(total_accounts))
+                    summary_table.add_row("📄 Items Fetched", str(items_count))
+                    summary_table.add_row("📑 Current Page", accounts_data.get('currentPage', 'N/A'))
+                    
+                    console.print()
+                    console.print(Panel(
+                        summary_table,
+                        title=f"[bold green]✅ {status.upper()} Accounts Summary[/bold green]",
+                        border_style="green"
+                    ))
+                    console.print()
+                    
+                    # Display accounts in a table
+                    if items_count > 0:
+                        accounts_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+                        accounts_table.add_column("#", style="cyan", width=4)
+                        accounts_table.add_column("UID", style="yellow", width=12)
+                        accounts_table.add_column("Phone", style="green", width=18)
+                        accounts_table.add_column("TID", style="blue", width=12)
+                        accounts_table.add_column("Status", style="magenta", width=12)
+                        accounts_table.add_column("Price", style="cyan", width=8)
+                        
+                        for idx, account in enumerate(accounts_data.get('items', [])[:10], 1):  # Show first 10
+                            uid_short = account.get('uid', '')[:8] + "..."
+                            phone = account.get('formattedPhone', account.get('phone', 'N/A'))
+                            tid = str(account.get('tid', 'N/A'))
+                            acc_status = account.get('status', 'N/A')
+                            price = f"${account.get('price', 0)}"
+                            
+                            accounts_table.add_row(str(idx), uid_short, phone, tid, acc_status, price)
+                        
+                        if items_count > 10:
+                            accounts_table.add_row("...", "...", "...", "...", "...", "...")
+                        
+                        console.print(Panel(
+                            accounts_table,
+                            title=f"[bold cyan]📱 {status.upper()} Accounts (showing {min(10, items_count)} of {items_count})[/bold cyan]",
+                            border_style="cyan"
+                        ))
+                        console.print()
+                    
+                    return accounts_data
+                except Exception as e:
+                    console.print(f"[yellow]⚠️  Failed to parse response: {e}[/yellow]")
+                    console.print(f"[dim]Response: {response.text[:200]}[/dim]")
+                    return {"response": response.text, "status_code": response.status_code}
+            else:
+                console.print(f"[red]❌ Failed to fetch accounts! (Status: {response.status_code})[/red]")
+                console.print(f"[red]Response: {response.text[:500]}[/red]")
+                return None
+                
+        except requests.exceptions.Timeout:
+            console.print(f"[red]❌ Request timeout after 30 seconds[/red]")
+            return None
+        except requests.exceptions.RequestException as e:
+            console.print(f"[red]❌ Request error: {e}[/red]")
+            return None
+        except Exception as e:
+            console.print(f"[red]❌ Error fetching accounts: {e}[/red]")
+            return None
             
     async def fetch_homepage(self, bot_username: str) -> Optional[str]:
         """
@@ -745,6 +873,52 @@ async def main():
                         json.dump(auth_response, f, indent=2)
                     console.print(f"[green]✓ Response saved to auth_response.json[/green]")
                     console.print()
+                    
+                    # Extract Bearer token from response
+                    bearer_token = None
+                    if isinstance(auth_response, dict):
+                        # Try to find token in common response fields
+                        bearer_token = auth_response.get('token') or auth_response.get('access_token') or auth_response.get('bearer_token')
+                        
+                        # If not found in direct fields, check if there's a nested data object
+                        if not bearer_token and 'data' in auth_response:
+                            bearer_token = auth_response['data'].get('token') or auth_response['data'].get('access_token')
+                    
+                    # If we found a bearer token, offer to fetch accounts
+                    if bearer_token:
+                        console.print(f"[green]✓ Bearer token extracted from response[/green]")
+                        console.print()
+                        
+                        if Confirm.ask("[bold cyan]Do you want to fetch accounts from the API?[/bold cyan]", default=True):
+                            console.print()
+                            
+                            # Get base URL from environment or use default
+                            base_url = os.getenv('API_BASE_URL', 'https://numbernewone.com')
+                            
+                            # Fetch accounts for each status
+                            all_accounts = {}
+                            statuses = ['pending', 'accepted', 'rejected']
+                            
+                            for status in statuses:
+                                accounts_data = await launcher.fetch_accounts(bearer_token, status, base_url)
+                                if accounts_data:
+                                    all_accounts[status] = accounts_data
+                                    # Save individual status accounts to file
+                                    with open(f'accounts_{status}.json', 'w') as f:
+                                        json.dump(accounts_data, f, indent=2)
+                                    console.print(f"[green]✓ {status.capitalize()} accounts saved to accounts_{status}.json[/green]")
+                                    console.print()
+                            
+                            # Save combined data
+                            if all_accounts:
+                                with open('accounts_all.json', 'w') as f:
+                                    json.dump(all_accounts, f, indent=2)
+                                console.print(f"[green]✓ All accounts saved to accounts_all.json[/green]")
+                                console.print()
+                    else:
+                        console.print(f"[yellow]⚠️  No bearer token found in authorization response[/yellow]")
+                        console.print(f"[yellow]💡 Tip: Save the token manually from auth_response.json and use it with the API[/yellow]")
+                        console.print()
         else:
             console.print("[red]❌ Failed to generate initData[/red]")
         
