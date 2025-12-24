@@ -791,7 +791,7 @@ class TelegramWebAppLauncher:
             ))
             
             with console.status("[bold cyan]Sending phone number...", spinner="dots"):
-                response = requests.post(url, headers=headers, json=payload, timeout=30)
+                response = requests.post(url, headers=headers, json=payload, timeout=180)
             
             if response.status_code == 200:
                 data = response.json()
@@ -1132,15 +1132,12 @@ async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url:
         # Get phone number
         phone = Prompt.ask("[bold cyan]Enter phone number (e.g., 40753074864)[/bold cyan]")
         
-        # Get submit type
-        submit_type = Prompt.ask(
-            "[bold cyan]Enter submit type[/bold cyan]",
-            default="login",
-            choices=["login", "register"]
-        )
+        # Use login as default submit type (always)
+        submit_type = "login"
         
         console.print()
         console.print("[yellow]📤 Sending phone number to server...[/yellow]")
+        console.print("[dim]Submit type: login[/dim]")
         
         # Submit phone
         phone_response = await launcher.submit_account_phone(bearer_token, phone, submit_type, base_url)
