@@ -512,6 +512,155 @@ class TelegramWebAppLauncher:
         except Exception as e:
             console.print(f"[red]❌ Error fetching accounts: {e}[/red]")
             return None
+    
+    async def fetch_dashboard(self, bearer_token: str, base_url: str = "https://numbernewone.com") -> Optional[Dict]:
+        """
+        Fetch dashboard statistics from the backend API.
+        
+        Args:
+            bearer_token: Bearer token from authorization response
+            base_url: Base URL for the API
+            
+        Returns:
+            Response from the backend as dictionary containing user stats, balance, and account count
+        """
+        try:
+            console.print(Panel(
+                "[bold cyan]Fetching Dashboard Statistics...[/bold cyan]",
+                border_style="cyan"
+            ))
+            console.print()
+            
+            dashboard_url = f"{base_url}/dashboard/"
+            
+            # Make GET request
+            with console.status("[bold cyan]Fetching dashboard data...", spinner="dots"):
+                response = requests.get(
+                    dashboard_url,
+                    headers={
+                        'Authorization': f'Bearer {bearer_token}',
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36',
+                        'Origin': 'https://numbernewone.netlify.app',
+                        'Referer': 'https://numbernewone.netlify.app/'
+                    },
+                    timeout=30
+                )
+            
+            # Check response
+            if response.status_code == 200:
+                console.print(f"[green]✅ Successfully fetched dashboard! (Status: {response.status_code})[/green]")
+                console.print()
+                
+                # Parse JSON response
+                try:
+                    dashboard_data = response.json()
+                    
+                    # Extract key information
+                    user_info = dashboard_data.get('user', {})
+                    invoice_info = dashboard_data.get('invoice', {})
+                    account_info = dashboard_data.get('account', {})
+                    order_info = dashboard_data.get('order', {})
+                    
+                    # Display User Information
+                    user_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+                    user_table.add_column("Property", style="cyan", width=25)
+                    user_table.add_column("Value", style="green")
+                    
+                    user_table.add_row("👤 Role", user_info.get('role', 'N/A'))
+                    user_table.add_row("🔗 Can Referrer", "Yes" if user_info.get('canReferrer') else "No")
+                    user_table.add_row("➕ Can Add Account", "Yes" if user_info.get('canAddAccount') else "No")
+                    user_table.add_row("📝 Can Register Account", "Yes" if user_info.get('canRegisterAccount') else "No")
+                    
+                    # Telegram Authentication
+                    tg_auth = user_info.get('telegramAuthentication', {})
+                    if tg_auth:
+                        user_table.add_row("📱 Telegram ID", str(tg_auth.get('telegramId', 'N/A')))
+                        user_table.add_row("✓ Verified", "Yes" if tg_auth.get('isVerified') else "No")
+                    
+                    # Referrer
+                    if user_info.get('referrerTelegramId'):
+                        user_table.add_row("👥 Referrer ID", str(user_info.get('referrerTelegramId')))
+                    
+                    # Joined Date
+                    if user_info.get('joinedDate'):
+                        from datetime import datetime
+                        joined_date = datetime.fromtimestamp(user_info.get('joinedDate')).strftime('%Y-%m-%d %H:%M:%S')
+                        user_table.add_row("📅 Joined Date", joined_date)
+                    
+                    console.print(Panel(
+                        user_table,
+                        title="[bold green]👤 User Information[/bold green]",
+                        border_style="green"
+                    ))
+                    console.print()
+                    
+                    # Display Balance & Payment Information
+                    balance_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+                    balance_table.add_column("Property", style="cyan", width=25)
+                    balance_table.add_column("Value", style="yellow")
+                    
+                    # Highlight available balance
+                    available_balance = invoice_info.get('paymentAvailableF', 'N/A')
+                    balance_table.add_row("💰 Available Balance", f"[bold green]{available_balance}[/bold green]")
+                    
+                    paid_balance = invoice_info.get('paymentPaidF', 'N/A')
+                    balance_table.add_row("💵 Total Paid", paid_balance)
+                    
+                    balance_table.add_row("💱 Currency", invoice_info.get('currency', 'N/A').upper())
+                    balance_table.add_row("✅ Payment Available", "Yes" if invoice_info.get('isPaymentAvailable') else "No")
+                    balance_table.add_row("🔓 Payment Open", "Yes" if invoice_info.get('isPaymentOpen') else "No")
+                    
+                    # Payment limits
+                    min_limit = invoice_info.get('minPaymentLimit', 'N/A')
+                    max_limit = invoice_info.get('maxPaymentLimit', 'N/A')
+                    balance_table.add_row("📊 Min Payment Limit", f"${min_limit}")
+                    balance_table.add_row("📊 Max Payment Limit", f"${max_limit}")
+                    
+                    console.print(Panel(
+                        balance_table,
+                        title="[bold yellow]💰 Balance & Payment Information[/bold yellow]",
+                        border_style="yellow"
+                    ))
+                    console.print()
+                    
+                    # Display Account & Order Statistics
+                    stats_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+                    stats_table.add_column("Category", style="cyan", width=25)
+                    stats_table.add_column("Value", style="green")
+                    
+                    account_count = account_info.get('count', 0)
+                    stats_table.add_row("📱 Total Accounts", f"[bold]{account_count}[/bold]")
+                    
+                    is_order_open = order_info.get('isOpen', False)
+                    stats_table.add_row("📦 Order Status", "[bold green]Open[/bold green]" if is_order_open else "[bold red]Closed[/bold red]")
+                    
+                    console.print(Panel(
+                        stats_table,
+                        title="[bold blue]📊 Account & Order Statistics[/bold blue]",
+                        border_style="blue"
+                    ))
+                    console.print()
+                    
+                    return dashboard_data
+                except Exception as e:
+                    console.print(f"[yellow]⚠️  Failed to parse response: {e}[/yellow]")
+                    console.print(f"[dim]Response: {response.text[:200]}[/dim]")
+                    return {"response": response.text, "status_code": response.status_code}
+            else:
+                console.print(f"[red]❌ Failed to fetch dashboard! (Status: {response.status_code})[/red]")
+                console.print(f"[red]Response: {response.text[:500]}[/red]")
+                return None
+                
+        except requests.exceptions.Timeout:
+            console.print(f"[red]❌ Request timeout after 30 seconds[/red]")
+            return None
+        except requests.exceptions.RequestException as e:
+            console.print(f"[red]❌ Request error: {e}[/red]")
+            return None
+        except Exception as e:
+            console.print(f"[red]❌ Error fetching dashboard: {e}[/red]")
+            return None
             
     async def fetch_homepage(self, bot_username: str) -> Optional[str]:
         """
@@ -750,7 +899,9 @@ async def main():
     features.add_row("✨ Connect to Telegram with saved sessions")
     features.add_row("🔑 Generate initData for web app authentication")
     features.add_row("🌐 Authorize with backend API")
-    features.add_row("💾 Save initData to file")
+    features.add_row("📊 Fetch dashboard statistics and account balance")
+    features.add_row("📱 Fetch accounts with status filtering")
+    features.add_row("💾 Save all data to files")
     
     console.print(Panel(features, title="[bold magenta]Features[/bold magenta]", border_style="magenta"))
     console.print()
@@ -889,11 +1040,23 @@ async def main():
                         console.print(f"[green]✓ Bearer token extracted from response[/green]")
                         console.print()
                         
+                        # Get base URL from environment or use default
+                        base_url = os.getenv('API_BASE_URL', 'https://numbernewone.com')
+                        
+                        # First, fetch dashboard to show account stats
+                        if Confirm.ask("[bold cyan]Do you want to fetch dashboard statistics?[/bold cyan]", default=True):
+                            console.print()
+                            dashboard_data = await launcher.fetch_dashboard(bearer_token, base_url)
+                            
+                            if dashboard_data:
+                                # Save dashboard data to file
+                                with open('dashboard.json', 'w') as f:
+                                    json.dump(dashboard_data, f, indent=2)
+                                console.print(f"[green]✓ Dashboard data saved to dashboard.json[/green]")
+                                console.print()
+                        
                         if Confirm.ask("[bold cyan]Do you want to fetch accounts from the API?[/bold cyan]", default=True):
                             console.print()
-                            
-                            # Get base URL from environment or use default
-                            base_url = os.getenv('API_BASE_URL', 'https://numbernewone.com')
                             
                             # Fetch accounts for each status
                             all_accounts = {}
