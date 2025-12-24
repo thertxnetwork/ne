@@ -1028,12 +1028,17 @@ async def main():
                     # Extract Bearer token from response
                     bearer_token = None
                     if isinstance(auth_response, dict):
-                        # Try to find token in common response fields
-                        bearer_token = auth_response.get('token') or auth_response.get('access_token') or auth_response.get('bearer_token')
+                        # Try to find token in common response fields (including camelCase variants)
+                        bearer_token = (auth_response.get('token') or 
+                                      auth_response.get('access_token') or 
+                                      auth_response.get('accessToken') or 
+                                      auth_response.get('bearer_token'))
                         
                         # If not found in direct fields, check if there's a nested data object
                         if not bearer_token and 'data' in auth_response:
-                            bearer_token = auth_response['data'].get('token') or auth_response['data'].get('access_token')
+                            bearer_token = (auth_response['data'].get('token') or 
+                                          auth_response['data'].get('access_token') or
+                                          auth_response['data'].get('accessToken'))
                     
                     # If we found a bearer token, offer to fetch accounts
                     if bearer_token:
