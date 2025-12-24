@@ -30,6 +30,9 @@ ENV/
 *.session
 *.session-journal
 
+# Authentication token
+.token
+
 # Environment variables
 .env
 

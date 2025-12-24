@@ -876,8 +876,136 @@ async def display_sessions(api_id: int, api_hash: str) -> Optional[str]:
             console.print("[red]Invalid input. Please enter a number.[/red]")
 
 
+def save_token(token: str, filename: str = '.token'):
+    """Save bearer token to file for persistence."""
+    try:
+        with open(filename, 'w') as f:
+            f.write(token)
+        console.print(f"[green]✓ Token saved to {filename}[/green]")
+        return True
+    except Exception as e:
+        console.print(f"[red]❌ Failed to save token: {e}[/red]")
+        return False
+
+
+def load_token(filename: str = '.token') -> Optional[str]:
+    """Load bearer token from file."""
+    try:
+        if os.path.exists(filename):
+            with open(filename, 'r') as f:
+                token = f.read().strip()
+            if token:
+                console.print(f"[green]✓ Token loaded from {filename}[/green]")
+                return token
+            else:
+                console.print(f"[yellow]⚠️  Token file is empty[/yellow]")
+                return None
+        else:
+            return None
+    except Exception as e:
+        console.print(f"[red]❌ Failed to load token: {e}[/red]")
+        return None
+
+
+def show_menu():
+    """Display interactive menu and return user choice."""
+    console.print()
+    menu_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+    menu_table.add_column("Option", style="cyan", width=5)
+    menu_table.add_column("Description", style="white")
+    
+    menu_table.add_row("1", "📊 View Dashboard (Balance & Stats)")
+    menu_table.add_row("2", "📱 View Pending Accounts")
+    menu_table.add_row("3", "✅ View Accepted Accounts")
+    menu_table.add_row("4", "❌ View Rejected Accounts")
+    menu_table.add_row("5", "🔄 Re-authenticate (Get New Token)")
+    menu_table.add_row("6", "🚪 Exit")
+    
+    console.print(Panel(
+        menu_table,
+        title="[bold cyan]📋 Main Menu[/bold cyan]",
+        border_style="cyan"
+    ))
+    console.print()
+    
+    choice = Prompt.ask("[bold cyan]Select an option (1-6)[/bold cyan]", default="1")
+    return choice
+
+
+async def handle_menu_choice(choice: str, launcher, bearer_token: str, base_url: str):
+    """Handle menu choice and perform corresponding action."""
+    try:
+        choice_num = int(choice)
+    except ValueError:
+        console.print("[red]Invalid input. Please enter a number between 1-6.[/red]")
+        return bearer_token, False  # Continue loop
+    
+    if choice_num == 1:
+        # View Dashboard
+        console.print()
+        dashboard_data = await launcher.fetch_dashboard(bearer_token, base_url)
+        if dashboard_data:
+            with open('dashboard.json', 'w') as f:
+                json.dump(dashboard_data, f, indent=2)
+            console.print(f"[green]✓ Dashboard data saved to dashboard.json[/green]")
+        console.print()
+        return bearer_token, False  # Continue loop
+    
+    elif choice_num == 2:
+        # View Pending Accounts
+        console.print()
+        accounts_data = await launcher.fetch_accounts(bearer_token, 'pending', base_url)
+        if accounts_data:
+            with open('accounts_pending.json', 'w') as f:
+                json.dump(accounts_data, f, indent=2)
+            console.print(f"[green]✓ Pending accounts saved to accounts_pending.json[/green]")
+        console.print()
+        return bearer_token, False  # Continue loop
+    
+    elif choice_num == 3:
+        # View Accepted Accounts
+        console.print()
+        accounts_data = await launcher.fetch_accounts(bearer_token, 'accepted', base_url)
+        if accounts_data:
+            with open('accounts_accepted.json', 'w') as f:
+                json.dump(accounts_data, f, indent=2)
+            console.print(f"[green]✓ Accepted accounts saved to accounts_accepted.json[/green]")
+        console.print()
+        return bearer_token, False  # Continue loop
+    
+    elif choice_num == 4:
+        # View Rejected Accounts
+        console.print()
+        accounts_data = await launcher.fetch_accounts(bearer_token, 'rejected', base_url)
+        if accounts_data:
+            with open('accounts_rejected.json', 'w') as f:
+                json.dump(accounts_data, f, indent=2)
+            console.print(f"[green]✓ Rejected accounts saved to accounts_rejected.json[/green]")
+        console.print()
+        return bearer_token, False  # Continue loop
+    
+    elif choice_num == 5:
+        # Re-authenticate
+        console.print()
+        console.print("[yellow]⚠️  Re-authentication requested[/yellow]")
+        console.print("[cyan]You will need to generate new initData and authorize again...[/cyan]")
+        console.print()
+        return None, True  # Signal to re-authenticate
+    
+    elif choice_num == 6:
+        # Exit
+        console.print()
+        console.print("[cyan]👋 Thank you for using Telegram Web App Launcher![/cyan]")
+        console.print()
+        return bearer_token, True  # Exit loop
+    
+    else:
+        console.print("[red]Invalid option. Please select 1-6.[/red]")
+        return bearer_token, False  # Continue loop
+
+
 async def main():
-    """Main function with beautiful terminal UI."""
+    """Main function with beautiful terminal UI and persistent authentication."""
     
     # Clear screen and show header
     console.clear()
@@ -930,6 +1058,51 @@ async def main():
         return
     
     console.print()
+    
+    # Check for existing token
+    console.print("[bold yellow]🔐 Authentication Status[/bold yellow]")
+    console.print()
+    existing_token = load_token()
+    
+    if existing_token:
+        console.print("[green]✅ Found existing authentication token![/green]")
+        console.print("[cyan]You can skip re-authentication and go directly to the menu.[/cyan]")
+        console.print()
+        
+        if Confirm.ask("[bold cyan]Do you want to use the existing token?[/bold cyan]", default=True):
+            # Skip authentication, go straight to menu
+            console.print()
+            console.print("[green]✓ Using existing token...[/green]")
+            console.print()
+            
+            # Get base URL for API calls
+            base_url = os.getenv('API_BASE_URL', 'https://numbernewone.com')
+            
+            # Initialize launcher (minimal, no connection needed for API calls)
+            launcher = TelegramWebAppLauncher(api_id, api_hash, "", "temp_session")
+            
+            # Show menu loop
+            bearer_token = existing_token
+            while True:
+                choice = show_menu()
+                bearer_token, should_exit = await handle_menu_choice(choice, launcher, bearer_token, base_url)
+                
+                if should_exit:
+                    if bearer_token is None:
+                        # User wants to re-authenticate
+                        console.print("[yellow]Proceeding to re-authentication...[/yellow]")
+                        console.print()
+                        break  # Break out of menu loop to continue with auth
+                    else:
+                        # User wants to exit
+                        return
+            # If we reach here, user wants to re-authenticate, continue with normal flow
+        else:
+            console.print("[yellow]⚠️  Will authenticate with new credentials...[/yellow]")
+            console.print()
+    else:
+        console.print("[yellow]ℹ️  No existing token found. You will need to authenticate.[/yellow]")
+        console.print()
     
     # Display and select session
     selected_session = await display_sessions(api_id, api_hash)
@@ -1040,49 +1213,32 @@ async def main():
                                           auth_response['data'].get('access_token') or
                                           auth_response['data'].get('accessToken'))
                     
-                    # If we found a bearer token, offer to fetch accounts
+                    # If we found a bearer token, save it and show menu
                     if bearer_token:
                         console.print(f"[green]✓ Bearer token extracted from response[/green]")
+                        console.print()
+                        
+                        # Save token to file for persistence
+                        save_token(bearer_token)
                         console.print()
                         
                         # Get base URL from environment or use default
                         base_url = os.getenv('API_BASE_URL', 'https://numbernewone.com')
                         
-                        # First, fetch dashboard to show account stats
-                        if Confirm.ask("[bold cyan]Do you want to fetch dashboard statistics?[/bold cyan]", default=True):
-                            console.print()
-                            dashboard_data = await launcher.fetch_dashboard(bearer_token, base_url)
-                            
-                            if dashboard_data:
-                                # Save dashboard data to file
-                                with open('dashboard.json', 'w') as f:
-                                    json.dump(dashboard_data, f, indent=2)
-                                console.print(f"[green]✓ Dashboard data saved to dashboard.json[/green]")
-                                console.print()
+                        # Show interactive menu
+                        console.print("[bold green]✨ Authentication successful! You can now use the menu.[/bold green]")
+                        console.print()
                         
-                        if Confirm.ask("[bold cyan]Do you want to fetch accounts from the API?[/bold cyan]", default=True):
-                            console.print()
+                        # Menu loop
+                        while True:
+                            choice = show_menu()
+                            bearer_token, should_exit = await handle_menu_choice(choice, launcher, bearer_token, base_url)
                             
-                            # Fetch accounts for each status
-                            all_accounts = {}
-                            statuses = ['pending', 'accepted', 'rejected']
-                            
-                            for status in statuses:
-                                accounts_data = await launcher.fetch_accounts(bearer_token, status, base_url)
-                                if accounts_data:
-                                    all_accounts[status] = accounts_data
-                                    # Save individual status accounts to file
-                                    with open(f'accounts_{status}.json', 'w') as f:
-                                        json.dump(accounts_data, f, indent=2)
-                                    console.print(f"[green]✓ {status.capitalize()} accounts saved to accounts_{status}.json[/green]")
-                                    console.print()
-                            
-                            # Save combined data
-                            if all_accounts:
-                                with open('accounts_all.json', 'w') as f:
-                                    json.dump(all_accounts, f, indent=2)
-                                console.print(f"[green]✓ All accounts saved to accounts_all.json[/green]")
-                                console.print()
+                            if should_exit:
+                                if bearer_token is None:
+                                    # User wants to re-authenticate
+                                    console.print("[yellow]⚠️  Token cleared. Please restart the script to re-authenticate.[/yellow]")
+                                break  # Exit menu loop
                     else:
                         console.print(f"[yellow]⚠️  No bearer token found in authorization response[/yellow]")
                         console.print(f"[yellow]💡 Tip: Save the token manually from auth_response.json and use it with the API[/yellow]")
