@@ -170,29 +170,70 @@ class TelegramWebAppLauncher:
                 bot = await self.client.get_entity(bot_username)
                 me = await self.client.get_me()
                 
-                # Try RequestAppWebViewRequest first (for bots with ?startapp parameter)
-                try:
-                    from telethon.tl.types import InputBotAppShortName
-                    result = await self.client(functions.messages.RequestAppWebViewRequest(
-                        peer=bot,
-                        app=InputBotAppShortName(
-                            bot_id=bot,
-                            short_name="app"
-                        ),
-                        platform='android',
-                        write_allowed=True,
-                        start_param=start_param if start_param else ""
-                    ))
-                except Exception as app_error:
-                    # Fallback to RequestWebViewRequest (for inline bots)
-                    console.print(f"[yellow]⚠️  Trying alternative method...[/yellow]")
-                    result = await self.client(functions.messages.RequestWebViewRequest(
-                        peer=bot,
-                        bot=bot,
-                        platform='android',
-                        url='',
-                        start_param=start_param if start_param else ""
-                    ))
+                # Get full bot info to check for web apps
+                full_bot = await self.client.get_entity(bot)
+                
+                result = None
+                
+                # Method 1: Try RequestAppWebViewRequest (for bots with attached web apps)
+                if hasattr(full_bot, 'bot_info_version'):
+                    try:
+                        # Get bot info to find web apps
+                        bot_info = await self.client(functions.users.GetFullUserRequest(bot))
+                        
+                        if bot_info.full_user.bot_info and hasattr(bot_info.full_user.bot_info, 'menu_button'):
+                            menu_button = bot_info.full_user.bot_info.menu_button
+                            if hasattr(menu_button, 'url'):
+                                # Bot has web app menu button
+                                console.print(f"[green]✓ Found web app menu button[/green]")
+                                
+                                # Extract short name from URL if possible
+                                from telethon.tl.types import InputBotAppShortName
+                                result = await self.client(functions.messages.RequestAppWebViewRequest(
+                                    peer=bot,
+                                    app=InputBotAppShortName(
+                                        bot_id=bot,
+                                        short_name="start"  # Common short name
+                                    ),
+                                    platform='android',
+                                    write_allowed=True,
+                                    start_param=start_param if start_param else ""
+                                ))
+                    except Exception as e:
+                        console.print(f"[yellow]⚠️  Method 1 failed: {str(e)[:100]}[/yellow]")
+                
+                # Method 2: Try with simple RequestWebViewRequest using from_bot_menu
+                if not result:
+                    try:
+                        console.print(f"[yellow]⚠️  Trying method 2 (from_bot_menu)...[/yellow]")
+                        result = await self.client(functions.messages.RequestWebViewRequest(
+                            peer=bot,
+                            bot=bot,
+                            platform='android',
+                            from_bot_menu=True,
+                            url=''
+                        ))
+                    except Exception as e:
+                        console.print(f"[yellow]⚠️  Method 2 failed: {str(e)[:100]}[/yellow]")
+                
+                # Method 3: Try without from_bot_menu but with start_param
+                if not result:
+                    try:
+                        console.print(f"[yellow]⚠️  Trying method 3 (with start_param)...[/yellow]")
+                        result = await self.client(functions.messages.RequestWebViewRequest(
+                            peer=bot,
+                            bot=bot,
+                            platform='android',
+                            url='',
+                            start_param=start_param if start_param else ""
+                        ))
+                    except Exception as e:
+                        console.print(f"[red]❌ All methods failed. Error: {e}[/red]")
+                        return None
+            
+            if not result:
+                console.print(f"[red]❌ Could not generate initData for this bot[/red]")
+                return None
             
             # Parse the URL to extract query parameters
             parsed_url = urlparse(result.url)
